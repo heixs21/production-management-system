@@ -1,0 +1,133 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 自定义样式 */
+.bg-gray-25 {
+  background-color: #fafafa;
+}
+
+.bg-red-25 {
+  background-color: #fef2f2;
+}
+
+.bg-blue-25 {
+  background-color: #eff6ff;
+}
+
+/* 甘特图滚动条样式 */
+.gantt-scroll::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.gantt-scroll::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.gantt-scroll::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.gantt-scroll::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* 工单卡片动画 */
+.order-card {
+  transition: all 0.2s ease-in-out;
+}
+
+.order-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 拖拽时的样式 */
+.dragging {
+  opacity: 0.5;
+  transform: rotate(5deg);
+}
+
+/* 表格行悬停效果 */
+.table-row:hover {
+  background-color: #f8fafc;
+  transition: background-color 0.15s ease-in-out;
+}
+
+/* 状态标签样式 */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* 机台状态指示器 */
+.machine-status-normal {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.machine-status-maintenance {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+/* 工单状态颜色 */
+.order-status-pending {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.order-status-in-progress {
+  background-color: #dbeafe;
+  color: #1d4ed8;
+}
+
+.order-status-completed {
+  background-color: #dcfce7;
+  color: #166534;
+}
+
+.order-status-delayed {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.order-status-paused {
+  background-color: #fed7aa;
+  color: #c2410c;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .gantt-container {
+    font-size: 0.75rem;
+  }
+
+  .machine-column {
+    min-width: 80px;
+  }
+
+  .date-column {
+    min-width: 60px;
+  }
+}
+
+/* 打印样式 */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .gantt-container {
+    overflow: visible !important;
+    max-height: none !important;
+  }
+}
