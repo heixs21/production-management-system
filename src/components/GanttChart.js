@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { getDateDisplay, getOrdersForMachineAndDate, isDateInDelayedPortion, getPriorityColors } from '../utils/orderUtils';
+import { getDateDisplay, getOrdersForMachineAndDate, isDateInDelayedPortion, getPriorityColors, getOrderGroupColor } from '../utils/orderUtils';
 
 const GanttChart = ({
   machines,
@@ -128,79 +128,129 @@ const GanttChart = ({
                       onDragOver={onDragOver}
                       onDrop={(e) => onDrop(e, machine.name, dateIndex)}
                     >
-                      {/* 工单卡片 - 垂直堆叠 */}
+                      {/* 工单卡片 - 优化排序和分组 */}
                       <div className="space-y-1">
-                        {ordersInCell.map((order, idx) => {
-                          const colors = getPriorityColors();
-                          const isDelayed = isDateInDelayedPortion(order, date);
-                          const isCompleted = !!order.actualEndDate;
+                        {(() => {
+                          // 先按工单编号分组
+                          const groupedOrders = ordersInCell.reduce((groups, order) => {
+                            const orderNo = order.orderNo;
+                            if (!groups[orderNo]) {
+                              groups[orderNo] = [];
+                            }
+                            groups[orderNo].push(order);
+                            return groups;
+                          }, {});
 
-                          // 确定颜色
-                          let cardColor;
-                          if (isDelayed) {
-                            cardColor = 'bg-red-500'; // 延期部分红色
-                          } else if (isCompleted) {
-                            cardColor = 'bg-gray-400'; // 已完成灰色
-                          } else if (order.isPaused) {
-                            cardColor = 'bg-orange-400'; // 暂停橙色
-                          } else if (order.status === '延期生产中') {
-                            cardColor = 'bg-red-400'; // 延期生产中红色
-                          } else if (order.isUrgent) {
-                            cardColor = 'bg-red-600'; // 紧急红色
-                          } else {
-                            cardColor = colors[(order.priority - 1) % colors.length]; // 正常优先级颜色
-                          }
+                          // 对每个工单组内的订单进行排序：紧急 > 优先级 > 状态
+                          Object.keys(groupedOrders).forEach(orderNo => {
+                            groupedOrders[orderNo].sort((a, b) => {
+                              // 紧急工单优先
+                              if (a.isUrgent && !b.isUrgent) return -1;
+                              if (!a.isUrgent && b.isUrgent) return 1;
 
-                          return (
-                            <div
-                              key={order.id}
-                              draggable={!isCompleted}
-                              onDragStart={(e) => !isCompleted && onDragStart(e, order)}
-                              className={`${cardColor} text-white p-1 rounded mb-1 min-h-10
-                                ${isCompleted ? 'cursor-default' : 'cursor-move'}
-                                hover:shadow-md transition-all duration-200 ${
-                                  draggedOrder?.id === order.id ? 'opacity-50' : ''
-                                } ${order.isUrgent ? 'border-2 border-red-300' : ''}`}
-                              title={`${order.orderNo} - ${order.materialName}\n优先度: ${order.isUrgent ? '紧急' : order.priority}\n状态: ${order.status}\n计划: ${order.startDate} 至 ${order.expectedEndDate}${order.delayedExpectedEndDate ? `\n延期预计: ${order.delayedExpectedEndDate}` : ''}${order.actualEndDate ? `\n实际结束: ${order.actualEndDate}` : ''}${order.reportedQuantity ? `\n报工数量: ${order.reportedQuantity}/${order.quantity}` : ''}`}
-                            >
-                              {/* 工单号 */}
-                              <div className="text-center mb-1">
-                                <span className="font-bold text-xs">
-                                  {order.orderNo}
-                                </span>
-                              </div>
+                              // 按优先级排序（数字越小优先级越高）
+                              if (a.priority !== b.priority) return a.priority - b.priority;
 
-                              {/* 底部一行：P2 + 当日报工数量 + 状态图标 + 报工按钮 */}
-                              <div className="flex items-center justify-between">
-                                <div className="flex items-center space-x-1 text-xs">
-                                  <span>P{order.priority}</span>
-                                  {/* 显示当日报工数量 - 这里需要根据日期获取当日报工数据 */}
-                                  {order.dailyReports && order.dailyReports[date] && order.dailyReports[date] > 0 && (
-                                    <span className="opacity-90">
-                                      {order.dailyReports[date]}
-                                    </span>
-                                  )}
+                              // 已完成的排在后面
+                              const aCompleted = !!a.actualEndDate;
+                              const bCompleted = !!b.actualEndDate;
+                              if (aCompleted && !bCompleted) return 1;
+                              if (!aCompleted && bCompleted) return -1;
+
+                              return 0;
+                            });
+                          });
+
+                          // 对工单组进行排序：按最高优先级排序
+                          const sortedGroups = Object.entries(groupedOrders).sort(([, groupA], [, groupB]) => {
+                            const minPriorityA = Math.min(...groupA.map(o => o.isUrgent ? 0 : o.priority));
+                            const minPriorityB = Math.min(...groupB.map(o => o.isUrgent ? 0 : o.priority));
+                            return minPriorityA - minPriorityB;
+                          });
+
+                          return sortedGroups.map(([orderNo, orderGroup]) => {
+                            const groupColor = getOrderGroupColor(orderNo);
+
+                            return (
+                              <div
+                                key={orderNo}
+                                className={`order-group ${groupColor.bg} ${groupColor.border} border rounded-lg p-1 ${groupColor.shadow} shadow-sm`}
+                              >
+                                {/* 工单编号标签 - 始终显示 */}
+                                <div className="text-xs font-semibold text-gray-700 mb-1 text-center bg-white bg-opacity-50 rounded px-1">
+                                  {orderNo}
                                 </div>
-                                <div className="flex items-center space-x-1">
-                                  {order.isUrgent && <span className="text-xs">🚨</span>}
-                                  {isDelayed && <span className="text-xs">⚠️</span>}
-                                  {isCompleted && <span className="text-xs">✅</span>}
-                                  {order.isPaused && <span className="text-xs">⏸️</span>}
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      onReportWork && onReportWork(order, date);
-                                    }}
-                                    className="w-4 h-4 bg-white bg-opacity-25 rounded text-xs hover:bg-opacity-40 flex items-center justify-center transition-all ml-1"
-                                    title="报工"
-                                  >
-                                    📝
-                                  </button>
+
+                                {/* 该工单的所有卡片 - 水平排列 */}
+                                <div className="flex flex-wrap gap-1">
+                                  {orderGroup.map((order, idx) => {
+                                    const colors = getPriorityColors();
+                                    const isDelayed = isDateInDelayedPortion(order, date);
+                                    const isCompleted = !!order.actualEndDate;
+
+                                    // 确定颜色
+                                    let cardColor;
+                                    if (isDelayed) {
+                                      cardColor = 'bg-red-400';
+                                    } else if (isCompleted) {
+                                      cardColor = 'bg-gray-400';
+                                    } else if (order.isPaused) {
+                                      cardColor = 'bg-orange-400';
+                                    } else if (order.status === '延期生产中') {
+                                      cardColor = 'bg-red-400';
+                                    } else if (order.isUrgent) {
+                                      cardColor = 'bg-red-500';
+                                    } else {
+                                      cardColor = colors[(order.priority - 1) % colors.length];
+                                    }
+
+                                    return (
+                                      <div
+                                        key={order.id}
+                                        draggable={!isCompleted}
+                                        onDragStart={(e) => !isCompleted && onDragStart(e, order)}
+                                        className={`order-card ${cardColor} text-white p-1 rounded text-xs min-w-8 flex-1
+                                          ${isCompleted ? 'cursor-default' : 'cursor-move'}
+                                          hover:shadow-md transition-all duration-200 ${
+                                            draggedOrder?.id === order.id ? 'opacity-50' : ''
+                                          } ${order.isUrgent ? 'ring-1 ring-red-300' : ''}`}
+                                        title={`${order.orderNo} - ${order.materialName}\n优先度: ${order.isUrgent ? '紧急' : order.priority}\n状态: ${order.status}\n计划: ${order.startDate} 至 ${order.expectedEndDate}${order.delayedExpectedEndDate ? `\n延期预计: ${order.delayedExpectedEndDate}` : ''}${order.actualEndDate ? `\n实际结束: ${order.actualEndDate}` : ''}${order.reportedQuantity ? `\n报工数量: ${order.reportedQuantity}/${order.quantity}` : ''}`}
+                                      >
+                                        {/* 简化显示：优先级 + 状态图标 + 报工按钮 */}
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex items-center space-x-1">
+                                            <span className="font-bold">P{order.priority}</span>
+                                            {order.dailyReports && order.dailyReports[date] && order.dailyReports[date] > 0 && (
+                                              <span className="bg-white bg-opacity-30 px-1 rounded">
+                                                {order.dailyReports[date]}
+                                              </span>
+                                            )}
+                                          </div>
+                                          <div className="flex items-center space-x-1">
+                                            {order.isUrgent && <span>🚨</span>}
+                                            {isDelayed && <span>⚠️</span>}
+                                            {isCompleted && <span>✅</span>}
+                                            {order.isPaused && <span>⏸️</span>}
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                onReportWork && onReportWork(order, date);
+                                              }}
+                                              className="w-3 h-3 bg-white bg-opacity-30 rounded hover:bg-opacity-50 flex items-center justify-center transition-all"
+                                              title="报工"
+                                            >
+                                              📝
+                                            </button>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })}
+                            );
+                          });
+                        })()}
                       </div>
                     </div>
                   );

@@ -193,15 +193,36 @@ export const getStatusColors = () => ({
   "暂停中": "text-orange-600 bg-orange-100"
 });
 
-// 优先级颜色配置
+// 优化的颜色方案 - 更柔和，更易区分
 export const getPriorityColors = () => [
-  "bg-blue-500",
-  "bg-green-500", 
-  "bg-yellow-500",
-  "bg-purple-500",
-  "bg-red-500",
-  "bg-indigo-500",
+  "bg-blue-400",    // P1 - 蓝色
+  "bg-green-400",   // P2 - 绿色
+  "bg-amber-400",   // P3 - 琥珀色
+  "bg-purple-400",  // P4 - 紫色
+  "bg-cyan-400",    // P5 - 青色
+  "bg-rose-400",    // P6 - 玫瑰色
+  "bg-indigo-400",  // P7 - 靛蓝色
+  "bg-emerald-400"  // P8 - 翠绿色
 ];
+
+// 根据工单编号获取一致的颜色组
+export const getOrderGroupColor = (orderNo) => {
+  const colors = [
+    { bg: 'bg-blue-50', border: 'border-blue-300', shadow: 'shadow-blue-200' },
+    { bg: 'bg-green-50', border: 'border-green-300', shadow: 'shadow-green-200' },
+    { bg: 'bg-amber-50', border: 'border-amber-300', shadow: 'shadow-amber-200' },
+    { bg: 'bg-purple-50', border: 'border-purple-300', shadow: 'shadow-purple-200' },
+    { bg: 'bg-cyan-50', border: 'border-cyan-300', shadow: 'shadow-cyan-200' },
+    { bg: 'bg-rose-50', border: 'border-rose-300', shadow: 'shadow-rose-200' },
+  ];
+
+  // 根据工单编号生成一致的颜色
+  let hash = 0;
+  for (let i = 0; i < orderNo.length; i++) {
+    hash = orderNo.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
 
 // 机台状态颜色配置
 export const getMachineStatusColors = () => ({

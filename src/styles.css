@@ -2,3 +2,59 @@
   font-family: sans-serif;
   text-align: center;
 }
+
+/* 甘特图样式 */
+.gantt-chart-container {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.gantt-content {
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+/* 工单分组样式 */
+.order-group {
+  transition: all 0.2s ease-in-out;
+}
+
+.order-group:hover {
+  transform: translateY(-1px);
+}
+
+/* 工单卡片样式 */
+.order-card {
+  transition: all 0.2s ease-in-out;
+  backdrop-filter: blur(4px);
+}
+
+.order-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* 柔和的阴影效果 */
+.shadow-blue-200 {
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.shadow-green-200 {
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.15);
+}
+
+.shadow-amber-200 {
+  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.15);
+}
+
+.shadow-purple-200 {
+  box-shadow: 0 2px 8px rgba(168, 85, 247, 0.15);
+}
+
+.shadow-cyan-200 {
+  box-shadow: 0 2px 8px rgba(6, 182, 212, 0.15);
+}
+
+.shadow-rose-200 {
+  box-shadow: 0 2px 8px rgba(244, 63, 94, 0.15);
+}

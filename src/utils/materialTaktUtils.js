@@ -21,28 +21,55 @@ const MATERIAL_TAKT_TABLE = {
       '16': 28
     }
   },
-  // 套筒滚子类型
-  '套筒滚子': {
-    '0-20': {
-      '默认': 15
-    },
+  // 套筒类型
+  '套筒': {
     '20-30': {
-      '默认': 18
+      '无需无孔': 85
     },
     '30-40': {
-      '默认': 22
+      '无需无孔': 90
     },
     '40-50': {
-      '默认': 26
+      '无需无孔': 100
     },
-    '50-60': {
-      '默认': 30
+    '50-58': {
+      '无需无孔': 115
+    }
+  },
+  // 滚子类型
+  '滚子': {
+    '0-20': {
+      '无需无孔': 68
     },
-    '60-70': {
-      '默认': 35
+    '20-30': {
+      '无需无孔': 82
     },
-    '70-80': {
-      '默认': 40
+    '30-40': {
+      '无需无孔': 95
+    },
+    '40-50': {
+      '无需无孔': 105
+    },
+    '50-58': {
+      '无需无孔': 113
+    }
+  },
+  // 销轴类型
+  '销轴': {
+    '0-20': {
+      '无需无孔': 22
+    },
+    '20-30': {
+      '无需无孔': 24
+    },
+    '30-40': {
+      '无需无孔': 26
+    },
+    '40-50': {
+      '无需无孔': 28
+    },
+    '50-58': {
+      '无需无孔': 34
     }
   },
   // 其他物料类型
@@ -71,9 +98,19 @@ export const identifyMaterialType = (materialName) => {
     return '内外板';
   }
 
-  // 检查是否包含"金加工"和("滚子"或"套筒")
-  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒'))) {
-    return '套筒滚子';
+  // 检查是否包含"金加工"和"套筒"
+  if (name.includes('金加工') && name.includes('套筒')) {
+    return '套筒';
+  }
+
+  // 检查是否包含"金加工"和"滚子"
+  if (name.includes('金加工') && name.includes('滚子')) {
+    return '滚子';
+  }
+
+  // 检查是否包含"金加工"和"销轴"
+  if (name.includes('金加工') && name.includes('销轴')) {
+    return '销轴';
   }
 
   return '其他';
@@ -150,8 +187,8 @@ export const identifyHoleType = (materialName) => {
 
   const name = materialName.toLowerCase();
 
-  // 对于套筒滚子，直接返回型号范围
-  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒'))) {
+  // 对于套筒、滚子、销轴，直接返回型号范围
+  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒') || name.includes('销轴'))) {
     const model = extractRollerModel(materialName);
     const sizeRange = mapModelToSizeRange(model);
     return sizeRange;
@@ -176,9 +213,9 @@ export const extractThickness = (materialName) => {
 
   const name = materialName.toLowerCase();
 
-  // 对于套筒滚子，返回默认值
-  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒'))) {
-    return '默认';
+  // 对于套筒、滚子、销轴，返回无需无孔
+  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒') || name.includes('销轴'))) {
+    return '无需无孔';
   }
 
   // 匹配类似 "100x12" 的模式，提取第二个数字
@@ -253,7 +290,7 @@ export const calculateEstimatedProductionTime = (materialName, quantity, machine
   return {
     materialType,
     holeType,
-    thickness: thickness + 'mm',
+    thickness: thickness === '无需无孔' ? thickness : thickness + 'mm',
     takt: takt + '秒',
     oee: (oee * 100).toFixed(1) + '%',
     theoreticalTime: Math.round(theoreticalTime),
