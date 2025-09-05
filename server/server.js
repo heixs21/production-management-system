@@ -12,6 +12,8 @@ app.use(cors({
   origin: [
     'http://localhost:3000',
     'http://127.0.0.1:3000',
+    'http://192.168.1.114:3000',
+    'http://192.168.1.114',
     'http://192.168.36.9:3000',
     'http://192.168.100.30:3000'  // 添加其他可能的IP地址
   ],
@@ -25,7 +27,7 @@ app.use(express.json());
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
-  password: process.env.DB_PASSWORD || '',
+  password: process.env.DB_PASSWORD || 'Hota@123456',
   database: process.env.DB_NAME || 'gunt_db',
   charset: 'utf8mb4',
   timezone: '+00:00', // 使用UTC时区，避免时区转换问题
