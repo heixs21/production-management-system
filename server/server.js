@@ -50,6 +50,7 @@ async function initDatabase() {
         lineCode VARCHAR(255),
         status VARCHAR(50) DEFAULT '正常',
         oee DECIMAL(3,2) DEFAULT 0.85,
+        coefficient DECIMAL(5,2) DEFAULT 1.00,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
@@ -116,6 +117,18 @@ async function initDatabase() {
       }
     }
 
+    // 添加机台系数字段
+    try {
+      await connection.execute(`
+        ALTER TABLE machines ADD COLUMN coefficient DECIMAL(5,2) DEFAULT 1.00
+      `);
+      console.log('✅ 添加 coefficient 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ coefficient 字段可能已存在');
+      }
+    }
+
     try {
       await connection.execute(`
         ALTER TABLE orders ADD COLUMN producedDays INT DEFAULT 0
@@ -172,12 +185,19 @@ app.get('/api/machines', async (req, res) => {
 
 app.post('/api/machines', async (req, res) => {
   try {
-    const { name, lineCode, status, oee } = req.body;
+    const { name, lineCode, status, oee, coefficient } = req.body;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, lineCode, status, oee) VALUES (?, ?, ?, ?)',
-      [name, lineCode || null, status || '正常', oee || 0.85]
+      'INSERT INTO machines (name, lineCode, status, oee, coefficient) VALUES (?, ?, ?, ?, ?)',
+      [name, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00]
     );
-    res.json({ id: result.insertId, name, lineCode: lineCode || null, status: status || '正常', oee: oee || 0.85 });
+    res.json({
+      id: result.insertId,
+      name,
+      lineCode: lineCode || null,
+      status: status || '正常',
+      oee: oee || 0.85,
+      coefficient: coefficient || 1.00
+    });
   } catch (error) {
     console.error('添加机台失败:', error);
     res.status(500).json({ error: error.message });
@@ -186,10 +206,10 @@ app.post('/api/machines', async (req, res) => {
 
 app.put('/api/machines/:id', async (req, res) => {
   try {
-    const { name, lineCode, status, oee } = req.body;
+    const { name, lineCode, status, oee, coefficient } = req.body;
     await pool.execute(
-      'UPDATE machines SET name = ?, lineCode = ?, status = ?, oee = ? WHERE id = ?',
-      [name, lineCode || null, status, oee, req.params.id]
+      'UPDATE machines SET name = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ?',
+      [name, lineCode || null, status, oee, coefficient || 1.00, req.params.id]
     );
     res.json({ message: '更新成功' });
   } catch (error) {

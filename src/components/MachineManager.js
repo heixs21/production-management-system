@@ -38,6 +38,7 @@ const MachineManager = ({
               <th className="p-2 text-left">产线代号</th>
               <th className="p-2 text-left">状态</th>
               <th className="p-2 text-left">OEE</th>
+              <th className="p-2 text-left">系数</th>
               <th className="p-2 text-left">工单数量</th>
               <th className="p-2 text-left">操作</th>
             </tr>
@@ -67,6 +68,11 @@ const MachineManager = ({
                     ) : (
                       <span className="text-gray-400 text-xs">未设置</span>
                     )}
+                  </td>
+                  <td className="p-2 text-center">
+                    <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
+                      {machine.coefficient || 1.00}
+                    </span>
                   </td>
                   <td className="p-2 text-center">
                     <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm font-medium">

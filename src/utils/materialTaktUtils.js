@@ -264,6 +264,17 @@ export const getMachineOEEFromData = (machineName, machines) => {
 };
 
 /**
+ * 从机台数据中获取系数
+ * @param {string} machineName - 机台名称
+ * @param {Array} machines - 机台数据数组
+ * @returns {number} - 系数值
+ */
+export const getMachineCoefficientFromData = (machineName, machines) => {
+  const machine = machines.find(m => m.name === machineName);
+  return machine && machine.coefficient ? parseFloat(machine.coefficient) : 1.00; // 默认系数为1.00
+};
+
+/**
  * 计算预计生产时间
  * @param {string} materialName - 物料名称
  * @param {number} quantity - 工单数量
@@ -277,6 +288,7 @@ export const calculateEstimatedProductionTime = (materialName, quantity, machine
   const thickness = extractThickness(materialName);
   const takt = getMaterialTakt(materialName);
   const oee = getMachineOEEFromData(machineName, machines);
+  const coefficient = getMachineCoefficientFromData(machineName, machines);
 
   // 计算理论生产时间（秒）
   const theoreticalTime = takt * quantity;
@@ -284,8 +296,11 @@ export const calculateEstimatedProductionTime = (materialName, quantity, machine
   // 考虑OEE的实际生产时间（秒）
   const actualTime = theoreticalTime / oee;
 
+  // 考虑系数的最终时间（秒）
+  const finalTime = actualTime / coefficient;
+
   // 转换为小时
-  const hours = actualTime / 3600;
+  const hours = finalTime / 3600;
 
   return {
     materialType,
@@ -293,10 +308,12 @@ export const calculateEstimatedProductionTime = (materialName, quantity, machine
     thickness: thickness === '无需无孔' ? thickness : thickness + 'mm',
     takt: takt + '秒',
     oee: (oee * 100).toFixed(1) + '%',
+    coefficient: coefficient,
     theoreticalTime: Math.round(theoreticalTime),
     actualTime: Math.round(actualTime),
+    finalTime: Math.round(finalTime),
     estimatedHours: hours.toFixed(2),
-    estimatedDays: (hours / 16).toFixed(2) // 按16小时工作日计算
+    estimatedDays: (hours / 16).toFixed(2) // 按16小时工作日计算，已考虑系数
   };
 };
 
@@ -361,6 +378,7 @@ export const calculateWithCustomParams = (materialType, holeType, thickness, qua
   const takt = holeTable[thickness] || holeTable['默认'] || 25;
 
   const oee = getMachineOEEFromData(machineName, machines);
+  const coefficient = getMachineCoefficientFromData(machineName, machines);
 
   // 计算理论生产时间（秒）
   const theoreticalTime = takt * quantity;
@@ -368,15 +386,20 @@ export const calculateWithCustomParams = (materialType, holeType, thickness, qua
   // 考虑OEE的实际生产时间（秒）
   const actualTime = theoreticalTime / oee;
 
+  // 考虑系数的最终时间（秒）
+  const finalTime = actualTime / coefficient;
+
   // 转换为小时
-  const hours = actualTime / 3600;
+  const hours = finalTime / 3600;
 
   return {
     takt: takt,
     taktDisplay: takt + '秒',
     oee: (oee * 100).toFixed(1) + '%',
+    coefficient: coefficient,
     theoreticalTime: Math.round(theoreticalTime),
     actualTime: Math.round(actualTime),
+    finalTime: Math.round(finalTime),
     estimatedHours: hours.toFixed(2),
     estimatedDays: (hours / 16).toFixed(2)
   };

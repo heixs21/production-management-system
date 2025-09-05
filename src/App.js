@@ -114,7 +114,7 @@ const App = () => {
   const [editingMaterial, setEditingMaterial] = useState(null);
 
   // 表单数据
-  const [newMachine, setNewMachine] = useState({ name: "", status: "正常" });
+  const [newMachine, setNewMachine] = useState({ name: "", status: "正常", coefficient: 1.00 });
   const [newOrder, setNewOrder] = useState({
     machine: "",
     orderNo: "",
@@ -211,7 +211,7 @@ const App = () => {
   const handleAddMachine = useCallback(async () => {
     try {
       await addMachine(newMachine);
-      setNewMachine({ name: "", status: "正常" });
+      setNewMachine({ name: "", status: "正常", coefficient: 1.00 });
       setShowMachineForm(false);
     } catch (err) {
       alert(`添加机台失败: ${err.message}`);
@@ -656,7 +656,7 @@ const App = () => {
       <MachineModal 
         show={!!editingMachine}
         isEditing={true}
-        machineData={editingMachine || { name: "", status: "正常" }}
+        machineData={editingMachine || { name: "", status: "正常", coefficient: 1.00 }}
         onMachineChange={setEditingMachine}
         onSave={handleSaveMachine}
         onClose={() => setEditingMachine(null)}

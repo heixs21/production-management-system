@@ -57,10 +57,10 @@ const CurrentOrdersAnalysis = ({ orders, machines }) => {
     });
   }, [currentOrders, manualOverrides, machines]);
 
-  // 计算总预计生产时间
-  const totalEstimatedHours = useMemo(() => {
+  // 计算总预计生产时间（天）
+  const totalEstimatedDays = useMemo(() => {
     return orderAnalysis.reduce((total, order) => {
-      return total + parseFloat(order.productionInfo.estimatedHours);
+      return total + parseFloat(order.productionInfo.estimatedDays);
     }, 0);
   }, [orderAnalysis]);
 
@@ -94,8 +94,7 @@ const CurrentOrdersAnalysis = ({ orders, machines }) => {
         <h3 className="text-lg font-semibold">📊 当前工单生产时间分析</h3>
         <div className="flex items-center space-x-4">
           <div className="text-sm text-gray-600">
-            总计: <span className="font-bold text-blue-600">{totalEstimatedHours.toFixed(2)}小时</span>
-            ({(totalEstimatedHours / 16).toFixed(1)}天)
+            总计: <span className="font-bold text-blue-600">{totalEstimatedDays.toFixed(2)}天</span>
           </div>
           <button
             onClick={() => setIsVisible(!isVisible)}
@@ -121,7 +120,7 @@ const CurrentOrdersAnalysis = ({ orders, machines }) => {
               <th className="text-left p-2 border">厚度</th>
               <th className="text-left p-2 border">节拍</th>
               <th className="text-left p-2 border">OEE</th>
-              <th className="text-left p-2 border">预计时间</th>
+              <th className="text-left p-2 border">预计时间(天)</th>
             </tr>
           </thead>
           <tbody>
@@ -199,7 +198,7 @@ const CurrentOrdersAnalysis = ({ orders, machines }) => {
                 </td>
 
                 <td className="p-2 border text-center font-medium text-blue-600">
-                  {order.productionInfo.estimatedHours}h
+                  {order.productionInfo.estimatedDays}天
                 </td>
               </tr>
             ))}
@@ -209,7 +208,7 @@ const CurrentOrdersAnalysis = ({ orders, machines }) => {
 
           <div className="mt-3 text-xs text-gray-500">
             * 绿色表示自动识别成功，下拉框表示需要手动选择
-            * 预计时间已考虑机台OEE，按16小时工作日计算天数
+            * 预计时间已考虑机台OEE和系数，按16小时工作日计算天数
           </div>
         </>
       )}

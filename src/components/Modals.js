@@ -82,6 +82,16 @@ export const MachineModal = ({
             onChange={(e) => onMachineChange({ ...machineData, oee: parseFloat(e.target.value) || null })}
             className="w-full p-2 border rounded"
           />
+          <input
+            type="number"
+            step="0.01"
+            min="0.1"
+            max="10"
+            placeholder="时间系数 (默认1.00)"
+            value={machineData.coefficient || ''}
+            onChange={(e) => onMachineChange({ ...machineData, coefficient: parseFloat(e.target.value) || 1.00 })}
+            className="w-full p-2 border rounded"
+          />
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <button
