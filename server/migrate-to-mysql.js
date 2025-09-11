@@ -6,7 +6,7 @@ const path = require('path');
 const mysqlConfig = {
   host: 'localhost',
   user: 'root',
-  password: 'root123@', // 请填入您的MySQL密码
+  password: 'root951@', // 请填入您的MySQL密码
   charset: 'utf8mb4'
 };
 
@@ -14,7 +14,7 @@ const dbName = 'gunt_db';
 
 async function migrateData() {
   let mysqlConnection;
-  
+
   try {
     console.log('🚀 开始数据迁移...');
     

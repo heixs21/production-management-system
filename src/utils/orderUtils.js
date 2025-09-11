@@ -3,6 +3,12 @@
 // 计算工单状态
 export const calculateOrderStatus = (order, machines) => {
   const machine = machines.find(m => m.name === order.machine);
+  const today = new Date();
+  const startDate = new Date(order.startDate);
+  
+  // 设置时间为当天开始，避免时间部分影响比较
+  today.setHours(0, 0, 0, 0);
+  startDate.setHours(0, 0, 0, 0);
 
   // 如果工单被手动暂停
   if (order.isPaused) {
@@ -14,13 +20,13 @@ export const calculateOrderStatus = (order, machines) => {
     return "暂停中";
   }
 
-  // 如果没有预计结束日期，状态为未开始
-  if (!order.expectedEndDate) {
-    return "未开始";
-  }
-
   // 如果有实际结束日期
   if (order.actualEndDate) {
+    // 如果没有预计结束日期，则不能判断延期，直接返回正常完成
+    if (!order.expectedEndDate) {
+      return "正常完成";
+    }
+    
     const expectedEnd = new Date(order.expectedEndDate);
     const actualEnd = new Date(order.actualEndDate);
 
@@ -31,12 +37,17 @@ export const calculateOrderStatus = (order, machines) => {
     }
   }
 
+  // 如果当前日期早于开始日期，状态为未开始
+  if (today < startDate) {
+    return "未开始";
+  }
+
   // 紧急工单
   if (order.isUrgent) {
     return "紧急生产";
   }
 
-  // 如果有预计结束日期但没有实际结束日期，状态为生产中
+  // 当前日期在开始日期当天及之后，状态为生产中
   return "生产中";
 };
 
@@ -99,7 +110,8 @@ export const getOrdersForMachineAndDate = (orders, machine, date) => {
       if (order.machine !== machine) return false;
 
       const startDate = new Date(order.startDate);
-      const expectedEndDate = new Date(order.expectedEndDate);
+      // 如果没有预计结束日期，使用开始日期作为默认结束日期
+      const expectedEndDate = order.expectedEndDate ? new Date(order.expectedEndDate) : new Date(order.startDate);
       const delayedExpectedEndDate = order.delayedExpectedEndDate ? new Date(order.delayedExpectedEndDate) : null;
       const actualEndDate = order.actualEndDate ? new Date(order.actualEndDate) : null;
 
@@ -119,6 +131,9 @@ export const getOrdersForMachineAndDate = (orders, machine, date) => {
 
 // 判断当前日期是否在工单的延期部分
 export const isDateInDelayedPortion = (order, date) => {
+  // 如果没有预计结束日期，不算延期
+  if (!order.expectedEndDate) return false;
+  
   const currentDate = new Date(date);
   const expectedEndDate = new Date(order.expectedEndDate);
 
@@ -128,7 +143,7 @@ export const isDateInDelayedPortion = (order, date) => {
     return currentDate > expectedEndDate && currentDate <= actualEndDate;
   }
 
-  // 如果工单还在进行中，检查是否超过了原预计结束日期
+  // 如枟工单还在进行中，检查是否超过了原预计结束日期
   // 或者是否在延期预计结束日期范围内
   if (order.delayedExpectedEndDate) {
     const delayedExpectedEndDate = new Date(order.delayedExpectedEndDate);
@@ -142,7 +157,8 @@ export const isDateInDelayedPortion = (order, date) => {
 // 计算工单在甘特图中的显示信息
 export const getOrderDisplayInfo = (order) => {
   const startDate = new Date(order.startDate);
-  const expectedEndDate = new Date(order.expectedEndDate);
+  // 如果没有预计结束日期，使用开始日期作为默认结束日期
+  const expectedEndDate = order.expectedEndDate ? new Date(order.expectedEndDate) : new Date(order.startDate);
   const delayedExpectedEndDate = order.delayedExpectedEndDate ? new Date(order.delayedExpectedEndDate) : null;
   const actualEndDate = order.actualEndDate ? new Date(order.actualEndDate) : null;
 

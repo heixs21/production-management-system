@@ -14,6 +14,19 @@ const GanttChart = ({
 }) => {
   const colors = getPriorityColors();
   const [zoomLevel, setZoomLevel] = useState(100); // 缩放比例，100为默认
+  
+  // 调试信息
+  console.log('甘特图组件调试:', {
+    machines: machines?.length || 0,
+    orders: orders?.length || 0,
+    dateRange: dateRange?.length || 0,
+    firstDate: dateRange?.[0],
+    lastDate: dateRange?.[dateRange?.length - 1]
+  });
+  
+  if (!machines || !orders || !dateRange) {
+    return <div className="p-4 text-center text-gray-500">正在加载甘特图数据...</div>;
+  }
 
   return (
     <div className="gantt-chart-container p-4">
@@ -161,8 +174,18 @@ const GanttChart = ({
                             });
                           });
 
-                          // 对工单组进行排序：按最高优先级排序
+                          // 对工单组进行排序：先按开始日期，再按优先级
                           const sortedGroups = Object.entries(groupedOrders).sort(([, groupA], [, groupB]) => {
+                            // 获取每组最早的开始日期
+                            const earliestStartA = Math.min(...groupA.map(o => new Date(o.startDate).getTime()));
+                            const earliestStartB = Math.min(...groupB.map(o => new Date(o.startDate).getTime()));
+                            
+                            // 先按开始日期排序
+                            if (earliestStartA !== earliestStartB) {
+                              return earliestStartA - earliestStartB;
+                            }
+                            
+                            // 开始日期相同时，按优先级排序
                             const minPriorityA = Math.min(...groupA.map(o => o.isUrgent ? 0 : o.priority));
                             const minPriorityB = Math.min(...groupB.map(o => o.isUrgent ? 0 : o.priority));
                             return minPriorityA - minPriorityB;

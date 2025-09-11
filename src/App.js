@@ -10,6 +10,7 @@ import MaterialTaktTable from "./components/MaterialTaktTable";
 import CurrentOrdersAnalysis from "./components/CurrentOrdersAnalysis";
 import DateRangeSelector from "./components/DateRangeSelector";
 import GanttChart from "./components/GanttChart";
+import ProductionBoard from "./components/ProductionBoard";
 import {
   ErrorMessage,
   LoadingSpinner,
@@ -33,8 +34,7 @@ import { workOrderApi } from "./services/api";
 
 // 导入工具函数
 import {
-  calculateOrderStatus,
-  generateDateRange
+  calculateOrderStatus
 } from "./utils/orderUtils";
 import {
   exportOrdersToExcel,
@@ -42,6 +42,9 @@ import {
 } from "./utils/exportUtils";
 
 const App = () => {
+  // 页面状态管理
+  const [currentPage, setCurrentPage] = useState('admin'); // 'admin' 或 'board'
+  
   // 使用自定义hooks管理数据
   const {
     orders,
@@ -185,6 +188,16 @@ const App = () => {
         dates.push(current.toISOString().split('T')[0]);
         current.setDate(current.getDate() + 1);
       }
+      
+      // 调试信息
+      console.log('日期范围调试:', {
+        selectedTimeRange,
+        start: start.toISOString().split('T')[0],
+        end: end.toISOString().split('T')[0],
+        dates: dates.slice(0, 5) + '...' + dates.slice(-2),
+        totalDays: dates.length
+      });
+      
       return dates;
     };
 
@@ -569,6 +582,11 @@ const App = () => {
     setDraggedOrder(null);
   }, [draggedOrder, dateRange, updateOrder]);
 
+  // 如果当前页面是生产看板，显示生产看板组件
+  if (currentPage === 'board') {
+    return <ProductionBoard onBackToAdmin={() => setCurrentPage('admin')} />;
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* 错误提示和加载状态 */}
@@ -585,6 +603,23 @@ const App = () => {
           onRefreshToken={handleRefreshToken}
           tokenRefreshing={tokenRefreshing}
         />
+        
+        {/* 生产看板链接 */}
+        <div className="p-4 border-b bg-blue-50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-blue-800">🏭 生产看板</h3>
+              <p className="text-blue-600 text-sm">现场人员专用 - 查看机台工单排产</p>
+            </div>
+            <button
+              onClick={() => setCurrentPage('board')}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-2"
+            >
+              <span>📺</span>
+              <span>打开生产看板</span>
+            </button>
+          </div>
+        </div>
 
         {/* 机台管理 */}
         <MachineManager 

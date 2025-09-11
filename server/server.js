@@ -233,7 +233,7 @@ app.delete('/api/machines/:id', async (req, res) => {
 // 工单API
 app.get('/api/orders', async (req, res) => {
   try {
-    const [rows] = await pool.execute('SELECT * FROM orders ORDER BY id');
+    const [rows] = await pool.execute('SELECT * FROM orders ORDER BY machine ASC, startDate ASC, priority ASC');
     // 转换数据格式
     const orders = rows.map(row => ({
       ...row,

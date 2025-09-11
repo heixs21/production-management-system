@@ -681,11 +681,6 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
       newErrors.push('请选择实际结束日期');
     }
 
-    // 检查总报工数量是否等于工单数量
-    if (totalReportedQuantity !== order.quantity) {
-      newErrors.push(`总报工数量(${totalReportedQuantity})必须等于工单数量(${order.quantity})`);
-    }
-
     if (newErrors.length > 0) {
       setErrors(newErrors);
       return;
@@ -756,10 +751,12 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
                 setErrors([]); // 清除错误信息
               }}
               min="0"
-              max={order?.quantity}
               className="w-full p-2 border rounded"
-              placeholder={`应报工数量: ${order?.quantity}`}
+              placeholder={`计划数量: ${order?.quantity}（可多做或少做）`}
             />
+            <div className="text-xs text-gray-500 mt-1">
+              计划数量: {order?.quantity}，实际可以多做或少做
+            </div>
           </div>
         </div>
 
@@ -785,10 +782,12 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
 // 延期预计结束日期模态框
 export const DelayOrderModal = ({ show, order, onConfirm, onClose }) => {
   const [delayedExpectedEndDate, setDelayedExpectedEndDate] = useState('');
+  const [delayReason, setDelayReason] = useState('');
 
   useEffect(() => {
     if (show && order) {
       setDelayedExpectedEndDate(order.delayedExpectedEndDate || '');
+      setDelayReason(order.delayReason || '');
     }
   }, [show, order]);
 
@@ -800,6 +799,7 @@ export const DelayOrderModal = ({ show, order, onConfirm, onClose }) => {
 
     onConfirm({
       delayedExpectedEndDate,
+      delayReason,
       status: '延期生产中'
     });
   };
@@ -807,6 +807,7 @@ export const DelayOrderModal = ({ show, order, onConfirm, onClose }) => {
   const handleCancelDelay = () => {
     onConfirm({
       delayedExpectedEndDate: null,
+      delayReason: '',
       status: '生产中'
     });
   };
@@ -840,6 +841,18 @@ export const DelayOrderModal = ({ show, order, onConfirm, onClose }) => {
               onChange={(e) => setDelayedExpectedEndDate(e.target.value)}
               min={order?.expectedEndDate}
               className="w-full p-2 border rounded"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              延期原因
+            </label>
+            <textarea
+              value={delayReason}
+              onChange={(e) => setDelayReason(e.target.value)}
+              className="w-full p-2 border rounded h-20"
+              placeholder="请说明延期原因..."
             />
           </div>
         </div>

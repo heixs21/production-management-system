@@ -14,7 +14,7 @@ import {
 
 const CurrentOrdersAnalysis = ({ orders, machines }) => {
   const [manualOverrides, setManualOverrides] = useState({});
-  const [isVisible, setIsVisible] = useState(true);
+  const [isVisible, setIsVisible] = useState(false);
 
   // 获取所有未完成的工单
   const currentOrders = useMemo(() => {
