@@ -49,6 +49,7 @@ export const exportOrdersToExcel = async (orders) => {
       '机台': order.machine,
       '物料编号': order.materialNo,
       '物料名称': order.materialName,
+      '工单组件': order.orderComponent || '',
       '数量': order.quantity,
       '优先度': order.isUrgent ? '紧急' : order.priority,
       '开始日期': order.startDate,
@@ -71,6 +72,7 @@ export const exportOrdersToExcel = async (orders) => {
       { wch: 10 }, // 机台
       { wch: 15 }, // 物料编号
       { wch: 20 }, // 物料名称
+      { wch: 15 }, // 工单组件
       { wch: 8 },  // 数量
       { wch: 8 },  // 优先度
       { wch: 12 }, // 开始日期

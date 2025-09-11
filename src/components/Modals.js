@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
+import { sapApi } from '../services/sapApi';
 
 // 错误提示组件
 export const ErrorMessage = ({ message, onClose }) => {
@@ -169,6 +170,32 @@ export const OrderModal = ({
   onSave,
   onClose
 }) => {
+  const [loading, setLoading] = useState(false);
+
+  // 处理工单号输入完成事件
+  const handleOrderNoKeyPress = async (e) => {
+    if (e.key === 'Enter' && orderData.orderNo && !isEditing) {
+      setLoading(true);
+      try {
+        const result = await sapApi.getOrderMaterial(orderData.orderNo);
+        if (result.success) {
+          onOrderChange({
+            ...orderData,
+            materialNo: result.data.materialNo,
+            materialName: result.data.materialName,
+            quantity: result.data.quantity
+          });
+        } else {
+          alert('获取物料信息失败: ' + result.error);
+        }
+      } catch (error) {
+        alert('获取物料信息失败: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   if (!show) return null;
 
   return (
@@ -191,36 +218,56 @@ export const OrderModal = ({
             ))}
           </select>
 
-          <input
-            type="text"
-            placeholder="工单号"
-            value={orderData.orderNo}
-            onChange={(e) => onOrderChange({ ...orderData, orderNo: e.target.value })}
-            className="w-full p-2 border rounded"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="工单号（输入后按回车自动获取物料信息）"
+              value={orderData.orderNo}
+              onChange={(e) => onOrderChange({ ...orderData, orderNo: e.target.value })}
+              onKeyPress={handleOrderNoKeyPress}
+              className="w-full p-2 border rounded"
+              disabled={loading}
+            />
+            {loading && (
+              <div className="absolute right-2 top-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+              </div>
+            )}
+          </div>
 
           <input
             type="text"
             placeholder="物料号"
-            value={orderData.materialNo}
+            value={orderData.materialNo || ''}
             onChange={(e) => onOrderChange({ ...orderData, materialNo: e.target.value })}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded bg-gray-50"
+            title="从SAP自动获取"
           />
 
           <input
             type="text"
             placeholder="物料名称"
-            value={orderData.materialName}
+            value={orderData.materialName || ''}
             onChange={(e) => onOrderChange({ ...orderData, materialName: e.target.value })}
+            className="w-full p-2 border rounded bg-gray-50"
+            title="从SAP自动获取"
+          />
+
+          <input
+            type="text"
+            placeholder="工单组件"
+            value={orderData.orderComponent || ''}
+            onChange={(e) => onOrderChange({ ...orderData, orderComponent: e.target.value })}
             className="w-full p-2 border rounded"
           />
 
           <input
             type="number"
             placeholder="数量"
-            value={orderData.quantity}
+            value={orderData.quantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, quantity: e.target.value })}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded bg-gray-50"
+            title="从SAP自动获取"
           />
 
           <input
@@ -290,6 +337,32 @@ export const UrgentOrderModal = ({
   onSave,
   onClose
 }) => {
+  const [loading, setLoading] = useState(false);
+
+  // 处理工单号输入完成事件
+  const handleOrderNoKeyPress = async (e) => {
+    if (e.key === 'Enter' && orderData.orderNo) {
+      setLoading(true);
+      try {
+        const result = await sapApi.getOrderMaterial(orderData.orderNo);
+        if (result.success) {
+          onOrderChange({
+            ...orderData,
+            materialNo: result.data.materialNo,
+            materialName: result.data.materialName,
+            quantity: result.data.quantity
+          });
+        } else {
+          alert('获取物料信息失败: ' + result.error);
+        }
+      } catch (error) {
+        alert('获取物料信息失败: ' + error.message);
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
   if (!show) return null;
 
   return (
@@ -316,36 +389,56 @@ export const UrgentOrderModal = ({
             ))}
           </select>
 
-          <input
-            type="text"
-            placeholder="工单号"
-            value={orderData.orderNo}
-            onChange={(e) => onOrderChange({ ...orderData, orderNo: e.target.value })}
-            className="w-full p-2 border rounded border-red-200"
-          />
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="工单号（输入后按回车自动获取物料信息）"
+              value={orderData.orderNo}
+              onChange={(e) => onOrderChange({ ...orderData, orderNo: e.target.value })}
+              onKeyPress={handleOrderNoKeyPress}
+              className="w-full p-2 border rounded border-red-200"
+              disabled={loading}
+            />
+            {loading && (
+              <div className="absolute right-2 top-2">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+              </div>
+            )}
+          </div>
 
           <input
             type="text"
             placeholder="物料号"
-            value={orderData.materialNo}
+            value={orderData.materialNo || ''}
             onChange={(e) => onOrderChange({ ...orderData, materialNo: e.target.value })}
-            className="w-full p-2 border rounded border-red-200"
+            className="w-full p-2 border rounded border-red-200 bg-red-50"
+            title="从SAP自动获取"
           />
 
           <input
             type="text"
             placeholder="物料名称"
-            value={orderData.materialName}
+            value={orderData.materialName || ''}
             onChange={(e) => onOrderChange({ ...orderData, materialName: e.target.value })}
+            className="w-full p-2 border rounded border-red-200 bg-red-50"
+            title="从SAP自动获取"
+          />
+
+          <input
+            type="text"
+            placeholder="工单组件"
+            value={orderData.orderComponent || ''}
+            onChange={(e) => onOrderChange({ ...orderData, orderComponent: e.target.value })}
             className="w-full p-2 border rounded border-red-200"
           />
 
           <input
             type="number"
             placeholder="数量"
-            value={orderData.quantity}
+            value={orderData.quantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, quantity: e.target.value })}
-            className="w-full p-2 border rounded border-red-200"
+            className="w-full p-2 border rounded border-red-200 bg-red-50"
+            title="从SAP自动获取"
           />
 
           <div className="space-y-2">
@@ -909,8 +1002,8 @@ export const SubmitWorkOrderModal = ({
       const machine = machines.find(m => m.name === order.machine);
       setFormData({
         orderId: order.orderNo || '',
-        materialId: '',
-        nextmaterialId: '',
+        materialId: order.orderComponent || '', // 工单组件自动带入物料编码
+        nextmaterialId: order.materialNo || '', // 物料号自动带入产成品编码
         quantity: order.quantity || '',
         equipment: machine?.lineCode || '',
         priority: order.priority || '',
@@ -921,8 +1014,16 @@ export const SubmitWorkOrderModal = ({
 
   const handleSubmit = () => {
     // 验证必填字段
-    if (!formData.orderId || !formData.materialId || !formData.nextmaterialId) {
-      alert('请填写完整的工单编号、物料编码和产成品编码');
+    if (!formData.orderId) {
+      alert('请填写工单编号');
+      return;
+    }
+    if (!formData.materialId) {
+      alert('请填写物料编码（来源：工单组件字段）');
+      return;
+    }
+    if (!formData.nextmaterialId) {
+      alert('请填写产成品编码（来源：物料号字段）');
       return;
     }
 
@@ -935,6 +1036,16 @@ export const SubmitWorkOrderModal = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-96">
         <h3 className="text-lg font-semibold mb-4">下达工单</h3>
+
+        <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
+          <div className="font-medium text-blue-800">工单信息：</div>
+          <div className="text-blue-700">
+            <div>工单号：{order?.orderNo}</div>
+            <div>物料名称：{order?.materialName}</div>
+            <div>工单组件：{order?.orderComponent || '未设置'}</div>
+            <div>物料号：{order?.materialNo || '未设置'}</div>
+          </div>
+        </div>
 
         <div className="space-y-3">
           <div>
@@ -952,10 +1063,11 @@ export const SubmitWorkOrderModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">物料编码</label>
             <input
               type="text"
-              placeholder="请输入"
+              placeholder="自动带入工单组件"
               value={formData.materialId}
               onChange={(e) => setFormData({ ...formData, materialId: e.target.value })}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded bg-gray-50"
+              title="来源：工单组件字段"
             />
           </div>
 
@@ -963,10 +1075,11 @@ export const SubmitWorkOrderModal = ({
             <label className="block text-sm font-medium text-gray-700 mb-1">产成品编码</label>
             <input
               type="text"
-              placeholder="请输入"
+              placeholder="自动带入物料号"
               value={formData.nextmaterialId}
               onChange={(e) => setFormData({ ...formData, nextmaterialId: e.target.value })}
-              className="w-full p-2 border rounded"
+              className="w-full p-2 border rounded bg-gray-50"
+              title="来源：物料号字段"
             />
           </div>
 

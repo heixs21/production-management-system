@@ -164,6 +164,18 @@ async function initDatabase() {
       }
     }
 
+    // 添加工单组件字段
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN orderComponent VARCHAR(255)
+      `);
+      console.log('✅ 添加 orderComponent 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ orderComponent 字段可能已存在');
+      }
+    }
+
     connection.release();
     console.log('✅ 数据库表初始化完成');
   } catch (error) {
@@ -250,7 +262,8 @@ app.get('/api/orders', async (req, res) => {
       // 新增字段
       producedDays: row.producedDays || 0,
       remainingDays: row.remainingDays || 0,
-      originalOrderId: row.originalOrderId
+      originalOrderId: row.originalOrderId,
+      orderComponent: row.orderComponent
     }));
     res.json(orders);
   } catch (error) {
@@ -274,8 +287,8 @@ app.post('/api/orders', async (req, res) => {
       machine, orderNo, materialNo, materialName, quantity, priority,
       startDate, expectedEndDate, delayedExpectedEndDate, actualEndDate, reportedQuantity,
       dailyReports, status, isUrgent, isPaused, pausedDate, resumedDate, delayReason,
-      producedDays, remainingDays, originalOrderId
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      producedDays, remainingDays, originalOrderId, orderComponent
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
       order.machine || null,
@@ -298,7 +311,8 @@ app.post('/api/orders', async (req, res) => {
       order.delayReason || null,
       order.producedDays || 0,
       order.remainingDays || 0,
-      order.originalOrderId || null
+      order.originalOrderId || null,
+      order.orderComponent || null
     ];
 
     const [result] = await pool.execute(sql, values);
@@ -317,7 +331,7 @@ app.put('/api/orders/:id', async (req, res) => {
       priority = ?, startDate = ?, expectedEndDate = ?, delayedExpectedEndDate = ?, actualEndDate = ?,
       reportedQuantity = ?, dailyReports = ?, status = ?, isUrgent = ?,
       isPaused = ?, pausedDate = ?, resumedDate = ?, delayReason = ?,
-      producedDays = ?, remainingDays = ?, originalOrderId = ?
+      producedDays = ?, remainingDays = ?, originalOrderId = ?, orderComponent = ?
       WHERE id = ?`;
 
     const values = [
@@ -342,6 +356,7 @@ app.put('/api/orders/:id', async (req, res) => {
       order.producedDays || 0,
       order.remainingDays || 0,
       order.originalOrderId || null,
+      order.orderComponent || null,
       req.params.id
     ];
 
@@ -465,6 +480,78 @@ app.post('/api/mes/refresh-token', async (req, res) => {
   }
 });
 
+// SAP系统代理API
+app.post('/api/sap/order-material', async (req, res) => {
+  try {
+    const { orderNo } = req.body;
+    
+    const data = {
+      "Code": "MM_BARCODE_PROWH_READ",
+      "UserId": "12552",
+      "ReturnCode": 0,
+      "ReturnMessage": "",
+      "np_code2migo": [{
+        "IvInput": `{"AUFNR":"${orderNo}"}`,
+        "EvOutput": ""
+      }]
+    };
+
+    const https = require('https');
+    const agent = new https.Agent({
+      rejectUnauthorized: false
+    });
+
+    const fetch = require('node-fetch');
+    const response = await fetch('https://192.168.202.40:44300/sap/opu/odata/sap/ZODATA01_SRV/codeSet', {
+      method: 'POST',
+      headers: {
+        "accept": "application/json",
+        "accept-language": "zh-CN",
+        "content-type": "application/json",
+        "dataserviceversion": "2.0",
+        "maxdataserviceversion": "2.0",
+        "x-csrf-token": "nOOF3X8bkXozKnCj7RosLw==",
+        "Cookie": "sap-usercontext=sap-language=ZH&sap-client=100; SAP_SESSIONID_PS4_100=-WNrzTVk_ssHM25K9WiBVKTYYr-O1xHwqJSFh9gAhLg%3d"
+      },
+      body: JSON.stringify(data),
+      agent
+    });
+
+    if (!response.ok) {
+      throw new Error(`SAP请求失败: ${response.status}`);
+    }
+
+    const result = await response.json();
+    
+    if (result.d?.np_code2migo?.results?.[0]?.EvOutput) {
+      const outputData = JSON.parse(result.d.np_code2migo.results[0].EvOutput);
+      res.json({
+        success: true,
+        data: {
+          orderNo: outputData.AUFNR,
+          materialNo: outputData.MATNR,
+          materialName: outputData.MAKTX,
+          quantity: outputData.GAMNG,
+          plant: outputData.WERKS,
+          plantName: outputData.WERKSNAME
+        }
+      });
+    } else {
+      console.log('SAP返回数据结构:', JSON.stringify(result, null, 2));
+      res.json({
+        success: false,
+        error: '未找到工单信息'
+      });
+    }
+  } catch (error) {
+    console.error('SAP代理请求失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 // MES系统代理API
 app.post('/api/mes/workOrder', async (req, res) => {
   try {
@@ -531,9 +618,6 @@ app.post('/api/mes/workOrder', async (req, res) => {
     });
   }
 });
-
-
-
 
 // 启动服务器
 app.listen(PORT, () => {
