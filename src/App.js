@@ -417,7 +417,8 @@ const App = () => {
   const handleRefreshToken = useCallback(async () => {
     try {
       setTokenRefreshing(true);
-      const response = await fetch('http://localhost:12454/api/mes/refresh-token', {
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${serverUrl}/api/mes/refresh-token`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -432,6 +433,31 @@ const App = () => {
       }
     } catch (error) {
       alert('MES Token刷新失败: ' + error.message);
+    } finally {
+      setTokenRefreshing(false);
+    }
+  }, []);
+
+  // 刷新SAP Token
+  const handleRefreshSapToken = useCallback(async () => {
+    try {
+      setTokenRefreshing(true);
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${serverUrl}/api/sap/refresh-auth`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert('SAP Token刷新成功！');
+      } else {
+        alert('SAP Token刷新失败: ' + result.error);
+      }
+    } catch (error) {
+      alert('SAP Token刷新失败: ' + error.message);
     } finally {
       setTokenRefreshing(false);
     }
@@ -605,6 +631,7 @@ const App = () => {
           onShowAddForm={() => setShowAddForm(true)}
           onShowUrgentForm={() => setShowUrgentForm(true)}
           onRefreshToken={handleRefreshToken}
+          onRefreshSapToken={handleRefreshSapToken}
           tokenRefreshing={tokenRefreshing}
         />
         

@@ -480,10 +480,110 @@ app.post('/api/mes/refresh-token', async (req, res) => {
   }
 });
 
+// SAP认证信息缓存
+let sapAuth = {
+  csrfToken: null,
+  sessionCookie: null,
+  lastUpdate: null
+};
+
+// SAP认证配置
+const SAP_CONFIG = {
+  username: process.env.SAP_USERNAME || 'HS040005',
+  password: process.env.SAP_PASSWORD || 'Hota@654321',
+  client: '100',
+  language: 'ZH'
+};
+
+// 获取SAP认证信息
+async function getSapAuth() {
+  try {
+    const https = require('https');
+    const agent = new https.Agent({ rejectUnauthorized: false });
+    
+    const auth = Buffer.from(`${SAP_CONFIG.username}:${SAP_CONFIG.password}`).toString('base64');
+    
+    const response = await fetch('https://192.168.202.40:44300/sap/opu/odata/sap/ZODATA01_SRV/', {
+      method: 'GET',
+      headers: {
+        'x-csrf-token': 'fetch',
+        'Authorization': `Basic ${auth}`
+      },
+      agent
+    });
+    
+    console.log('SAP认证响应状态:', response.status);
+    
+    if (response.status === 200) {
+      const csrfToken = response.headers.get('x-csrf-token');
+      console.log('CSRF Token:', csrfToken);
+      
+      // 获取cookies
+      let sessionCookie = null;
+      const cookieHeader = response.headers.get('set-cookie');
+      console.log('Set-Cookie header:', cookieHeader);
+      
+      if (cookieHeader) {
+        const cookies = Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader];
+        for (const cookie of cookies) {
+          if (cookie.includes('SAP_SESSIONID_PS4_100')) {
+            const match = cookie.match(/SAP_SESSIONID_PS4_100=([^;]+)/);
+            if (match) {
+              sessionCookie = `SAP_SESSIONID_PS4_100=${match[1]}`;
+              console.log('Session Cookie:', sessionCookie);
+              break;
+            }
+          }
+        }
+      }
+      
+      if (csrfToken && sessionCookie) {
+        sapAuth = {
+          csrfToken,
+          sessionCookie,
+          lastUpdate: Date.now()
+        };
+        console.log('✅ SAP认证信息更新成功');
+        return true;
+      } else {
+        console.log('❌ 未获取到完整认证信息');
+        console.log('CSRF Token:', csrfToken);
+        console.log('Session Cookie:', sessionCookie);
+      }
+    } else {
+      const errorText = await response.text();
+      console.log('SAP认证失败响应:', errorText.substring(0, 200));
+    }
+    return false;
+  } catch (error) {
+    console.error('❌ 获取SAP认证失败:', error);
+    return false;
+  }
+}
+
+// 检查并刷新SAP认证
+async function ensureSapAuth() {
+  const now = Date.now();
+  // 如果没有认证信息或超过30分钟，重新获取
+  if (!sapAuth.csrfToken || !sapAuth.lastUpdate || (now - sapAuth.lastUpdate) > 30 * 60 * 1000) {
+    return await getSapAuth();
+  }
+  return true;
+}
+
 // SAP系统代理API
 app.post('/api/sap/order-material', async (req, res) => {
   try {
     const { orderNo } = req.body;
+    
+    // 确保有有效的认证信息
+    const authValid = await ensureSapAuth();
+    if (!authValid) {
+      return res.status(500).json({
+        success: false,
+        error: '无法获取SAP认证信息'
+      });
+    }
     
     const data = {
       "Code": "MM_BARCODE_PROWH_READ",
@@ -497,11 +597,8 @@ app.post('/api/sap/order-material', async (req, res) => {
     };
 
     const https = require('https');
-    const agent = new https.Agent({
-      rejectUnauthorized: false
-    });
+    const agent = new https.Agent({ rejectUnauthorized: false });
 
-    const fetch = require('node-fetch');
     const response = await fetch('https://192.168.202.40:44300/sap/opu/odata/sap/ZODATA01_SRV/codeSet', {
       method: 'POST',
       headers: {
@@ -510,8 +607,8 @@ app.post('/api/sap/order-material', async (req, res) => {
         "content-type": "application/json",
         "dataserviceversion": "2.0",
         "maxdataserviceversion": "2.0",
-        "x-csrf-token": "nOOF3X8bkXozKnCj7RosLw==",
-        "Cookie": "sap-usercontext=sap-language=ZH&sap-client=100; SAP_SESSIONID_PS4_100=-WNrzTVk_ssHM25K9WiBVKTYYr-O1xHwqJSFh9gAhLg%3d"
+        "x-csrf-token": sapAuth.csrfToken,
+        "Cookie": `sap-usercontext=sap-language=ZH&sap-client=100; ${sapAuth.sessionCookie}`
       },
       body: JSON.stringify(data),
       agent
@@ -545,6 +642,22 @@ app.post('/api/sap/order-material', async (req, res) => {
     }
   } catch (error) {
     console.error('SAP代理请求失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// 手动刷新SAP认证的API
+app.post('/api/sap/refresh-auth', async (req, res) => {
+  try {
+    const success = await getSapAuth();
+    res.json({
+      success,
+      message: success ? 'SAP认证刷新成功' : 'SAP认证刷新失败'
+    });
+  } catch (error) {
     res.status(500).json({
       success: false,
       error: error.message

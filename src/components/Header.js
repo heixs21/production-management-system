@@ -7,6 +7,7 @@ const Header = ({
   onShowAddForm,
   onShowUrgentForm,
   onRefreshToken,
+  onRefreshSapToken,
   tokenRefreshing
 }) => {
   return (
@@ -23,7 +24,16 @@ const Header = ({
           title="刷新MES系统Token"
         >
           🔄
-          {tokenRefreshing ? '刷新中...' : 'Token'}
+          {tokenRefreshing ? '刷新中...' : 'MES Token'}
+        </button>
+        <button
+          onClick={onRefreshSapToken}
+          disabled={tokenRefreshing}
+          className="bg-orange-600 hover:bg-orange-500 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:bg-gray-500"
+          title="刷新SAP系统Token"
+        >
+          🔄
+          SAP
         </button>
         <button
           onClick={onShowMachineForm}

@@ -12,9 +12,10 @@ const ProductionBoard = ({ onBackToAdmin }) => {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const serverUrl = `http://${window.location.hostname}:12454`;
         const [machinesRes, ordersRes] = await Promise.all([
-          fetch('http://localhost:12454/api/machines'),
-          fetch('http://localhost:12454/api/orders')
+          fetch(`${serverUrl}/api/machines`),
+          fetch(`${serverUrl}/api/orders`)
         ]);
         
         const machinesData = await machinesRes.json();
