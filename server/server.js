@@ -489,8 +489,8 @@ let sapAuth = {
 
 // SAP认证配置
 const SAP_CONFIG = {
-  username: process.env.SAP_USERNAME || 'HS040005',
-  password: process.env.SAP_PASSWORD || 'Hota@654321',
+  username: process.env.SAP_USERNAME,
+  password: process.env.SAP_PASSWORD,
   client: '100',
   language: 'ZH'
 };
