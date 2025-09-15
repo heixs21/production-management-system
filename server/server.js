@@ -3,6 +3,7 @@ const express = require('express');
 const cors = require('cors');
 const mysql = require('mysql2/promise');
 const fetch = require('node-fetch');
+const { getOrderQuantity, getWmsTokenStatus, clearWmsToken } = require('./wmsApi');
 
 const app = express();
 const PORT = process.env.PORT || 12454;
@@ -442,13 +443,28 @@ app.delete('/api/materials/:id', async (req, res) => {
   }
 });
 
-// MES系统Token管理
-let mesToken = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjkyMEZCRkE3MkM2NzM2Rjk0ODY4NzFBQTg1MDJFMEExIiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NTY3OTk1NTMsImV4cCI6MTc4ODMzNTU1MywiaXNzIjoiaHR0cDovLzE5Mi4xNjguMzMuMTEyOjQzMzUyIiwiYXVkIjoiQUdWUGxhdGZvcm0iLCJjbGllbnRfaWQiOiJBR1ZQbGF0Zm9ybV9BcHAiLCJzdWIiOiI4MzQ0YzFkNC1hNDNkLWUwMjItMmQwNy0zYTAyNzQ5NWM1OGQiLCJhdXRoX3RpbWUiOjE3NTY3OTk1NTMsImlkcCI6ImxvY2FsIiwicm9sZSI6ImFkbWluIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiYWRtaW4iLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOiJGYWxzZSIsImVtYWlsIjoiYWRtaW5AYWJwLmlvIiwiZW1haWxfdmVyaWZpZWQiOiJGYWxzZSIsIm5hbWUiOiJhZG1pbiIsImlhdCI6MTc1Njc5OTU1Mywic2NvcGUiOlsiQUdWUGxhdGZvcm0iXSwiYW1yIjpbInB3ZCJdfQ.Lt7hL6IWcw3QIoGJeP2jW9OHdlwcZi4XtXF99kw4CGSGVRbuTfRpZLWCqohCUYaMqHI3xCVOBeT-mGnDfbElMkH7c-RPVrF5iTS2isUEtnjlueNuBibvNyccNt-uqOt-_rvsE_2593fyZ9KwnfpvzABxLFBpBjx-48Tt8tQ96t5-1tgj-41GNaSGVEWDZoZwOfxS82Y5nXHlX1NGochHKqaikswgMCkKu8LZbX8ThbFCe_V8vDX5nZyiVGWmCcHM8lDRBOSgpy6-AzGBIylqkUMlLB7Er9Q7KjCIzdErGintlPT0UG41WxrcTnOywHg9RGigXPLBdacfx9_Ug4vyMw';
+const tokenSecurity = require('./tokenSecurity');
+
+// 服务标识
+const MES_SERVICE = 'mes_system';
+const SAP_SERVICE = 'sap_system';
+
+// MES配置
+const MES_CONFIG = {
+  tokenUrl: 'http://192.168.33.112:43352/connect/token',
+  apiUrl: 'http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder',
+  username: process.env.MES_USERNAME || 'admin',
+  password: process.env.MES_PASSWORD || '1q2w3E*',
+  clientId: 'AGVPlatform_App',
+  clientSecret: '1q2w3e*'
+};
 
 // 获取新的MES Token
 async function refreshMesToken() {
   try {
-    const response = await fetch('http://192.168.33.112:43352/connect/token', {
+    const body = `scope=AGVPlatform&username=${MES_CONFIG.username}&password=${MES_CONFIG.password}&client_id=${MES_CONFIG.clientId}&client_secret=${MES_CONFIG.clientSecret}&grant_type=password`;
+    
+    const response = await fetch(MES_CONFIG.tokenUrl, {
       method: 'POST',
       headers: {
         'Accept': 'application/json, text/plain, */*',
@@ -461,7 +477,7 @@ async function refreshMesToken() {
         'Referer': 'http://192.168.33.112:9527/',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
       },
-      body: 'scope=AGVPlatform&username=admin&password=1q2w3E*&client_id=AGVPlatform_App&client_secret=1q2w3e*&grant_type=password'
+      body
     });
 
     if (!response.ok) {
@@ -469,37 +485,62 @@ async function refreshMesToken() {
     }
 
     const tokenData = await response.json();
-    mesToken = tokenData.access_token;
+    tokenSecurity.storeToken(MES_SERVICE, tokenData.access_token, 60); // MES Token有效期更长
     console.log('✅ MES Token刷新成功');
-    return mesToken;
+    return tokenData.access_token;
   } catch (error) {
-    console.error('❌ MES Token刷新失败:', error);
-    throw error;
+    console.error('❌ MES Token刷新失败: [错误信息已隐藏]');
+    throw new Error('MES认证失败');
   }
 }
 
-// 手动刷新token的API
+// 获取MES Token
+function getMesToken() {
+  const token = tokenSecurity.getToken(MES_SERVICE);
+  return token;
+}
+
+// 确保MES认证有效
+async function ensureMesAuth() {
+  const token = getMesToken();
+  if (token) {
+    return token;
+  }
+  return await refreshMesToken();
+}
+
+// 手动刷新MES token的API
 app.post('/api/mes/refresh-token', async (req, res) => {
   try {
-    const newToken = await refreshMesToken();
+    await refreshMesToken();
     res.json({
       success: true,
-      message: 'Token刷新成功',
-      token: newToken.substring(0, 50) + '...' // 只返回前50个字符用于确认
+      message: 'MES Token刷新成功'
     });
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: 'MES Token刷新失败'
     });
   }
 });
 
-// SAP认证信息缓存
-let sapAuth = {
+// MES Token状态查询API
+app.get('/api/mes/token-status', (req, res) => {
+  const status = tokenSecurity.getTokenStatus(MES_SERVICE);
+  res.json(status);
+});
+
+// 清除MES Token API
+app.post('/api/mes/clear-token', (req, res) => {
+  tokenSecurity.clearToken(MES_SERVICE);
+  res.json({ success: true, message: 'MES Token已清除' });
+});
+
+// SAP认证信息结构
+const sapAuthStructure = {
   csrfToken: null,
-  sessionCookie: null,
-  lastUpdate: null
+  sessionCookie: null
 };
 
 // SAP认证配置
@@ -527,16 +568,11 @@ async function getSapAuth() {
       agent
     });
     
-    console.log('SAP认证响应状态:', response.status);
-    
     if (response.status === 200) {
       const csrfToken = response.headers.get('x-csrf-token');
-      console.log('CSRF Token:', csrfToken);
       
-      // 获取cookies
       let sessionCookie = null;
       const cookieHeader = response.headers.get('set-cookie');
-      console.log('Set-Cookie header:', cookieHeader);
       
       if (cookieHeader) {
         const cookies = Array.isArray(cookieHeader) ? cookieHeader : [cookieHeader];
@@ -545,7 +581,6 @@ async function getSapAuth() {
             const match = cookie.match(/SAP_SESSIONID_PS4_100=([^;]+)/);
             if (match) {
               sessionCookie = `SAP_SESSIONID_PS4_100=${match[1]}`;
-              console.log('Session Cookie:', sessionCookie);
               break;
             }
           }
@@ -553,37 +588,39 @@ async function getSapAuth() {
       }
       
       if (csrfToken && sessionCookie) {
-        sapAuth = {
-          csrfToken,
-          sessionCookie,
-          lastUpdate: Date.now()
-        };
+        const authData = JSON.stringify({ csrfToken, sessionCookie });
+        tokenSecurity.storeToken(SAP_SERVICE, authData, 30);
         console.log('✅ SAP认证信息更新成功');
         return true;
-      } else {
-        console.log('❌ 未获取到完整认证信息');
-        console.log('CSRF Token:', csrfToken);
-        console.log('Session Cookie:', sessionCookie);
       }
-    } else {
-      const errorText = await response.text();
-      console.log('SAP认证失败响应:', errorText.substring(0, 200));
     }
     return false;
   } catch (error) {
-    console.error('❌ 获取SAP认证失败:', error);
+    console.error('❌ 获取SAP认证失败: [错误信息已隐藏]');
     return false;
   }
 }
 
+// 获取SAP认证信息
+function getSapAuthData() {
+  const authData = tokenSecurity.getToken(SAP_SERVICE);
+  if (authData) {
+    try {
+      return JSON.parse(authData);
+    } catch (e) {
+      return null;
+    }
+  }
+  return null;
+}
+
 // 检查并刷新SAP认证
 async function ensureSapAuth() {
-  const now = Date.now();
-  // 如果没有认证信息或超过30分钟，重新获取
-  if (!sapAuth.csrfToken || !sapAuth.lastUpdate || (now - sapAuth.lastUpdate) > 30 * 60 * 1000) {
-    return await getSapAuth();
+  const authData = getSapAuthData();
+  if (authData && authData.csrfToken && authData.sessionCookie) {
+    return true;
   }
-  return true;
+  return await getSapAuth();
 }
 
 // SAP系统代理API
@@ -599,6 +636,8 @@ app.post('/api/sap/order-material', async (req, res) => {
         error: '无法获取SAP认证信息'
       });
     }
+    
+    const sapAuthData = getSapAuthData();
     
     const data = {
       "Code": "MM_BARCODE_PROWH_READ",
@@ -622,8 +661,8 @@ app.post('/api/sap/order-material', async (req, res) => {
         "content-type": "application/json",
         "dataserviceversion": "2.0",
         "maxdataserviceversion": "2.0",
-        "x-csrf-token": sapAuth.csrfToken,
-        "Cookie": `sap-usercontext=sap-language=ZH&sap-client=100; ${sapAuth.sessionCookie}`
+        "x-csrf-token": sapAuthData.csrfToken,
+        "Cookie": `sap-usercontext=sap-language=ZH&sap-client=100; ${sapAuthData.sessionCookie}`
       },
       body: JSON.stringify(data),
       agent
@@ -649,17 +688,16 @@ app.post('/api/sap/order-material', async (req, res) => {
         }
       });
     } else {
-      console.log('SAP返回数据结构:', JSON.stringify(result, null, 2));
       res.json({
         success: false,
         error: '未找到工单信息'
       });
     }
   } catch (error) {
-    console.error('SAP代理请求失败:', error);
+    console.error('SAP代理请求失败: [错误信息已隐藏]');
     res.status(500).json({
       success: false,
-      error: error.message
+      error: 'SAP系统连接失败'
     });
   }
 });
@@ -675,9 +713,72 @@ app.post('/api/sap/refresh-auth', async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: error.message
+      error: 'SAP认证刷新失败'
     });
   }
+});
+
+// SAP Token状态查询API
+app.get('/api/sap/token-status', (req, res) => {
+  const status = tokenSecurity.getTokenStatus(SAP_SERVICE);
+  res.json(status);
+});
+
+// 清除SAP Token API
+app.post('/api/sap/clear-token', (req, res) => {
+  tokenSecurity.clearToken(SAP_SERVICE);
+  res.json({ success: true, message: 'SAP Token已清除' });
+});
+
+// 手动更新WMS报工数量的API
+app.post('/api/wms/update-quantities', async (req, res) => {
+  try {
+    const [orders] = await pool.execute(
+      "SELECT id, orderNo FROM orders WHERE status IN ('生产中', '延期生产中') AND orderNo IS NOT NULL"
+    );
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const results = [];
+    
+    for (const order of orders) {
+      try {
+        const quantity = await getOrderQuantity(order.orderNo);
+        await pool.execute(
+          'UPDATE orders SET reportedQuantity = ? WHERE id = ?',
+          [quantity, order.id]
+        );
+        results.push({ orderNo: order.orderNo, quantity, success: true });
+        successCount++;
+      } catch (error) {
+        results.push({ orderNo: order.orderNo, error: '[错误信息已隐藏]', success: false });
+        errorCount++;
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `更新完成：成功${successCount}个，失败${errorCount}个`,
+      results: results.map(r => ({ orderNo: r.orderNo, quantity: r.quantity, success: r.success }))
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: '[错误信息已隐藏]'
+    });
+  }
+});
+
+// WMS Token状态查询API
+app.get('/api/wms/token-status', (req, res) => {
+  const status = getWmsTokenStatus();
+  res.json(status);
+});
+
+// 清除WMS Token API
+app.post('/api/wms/clear-token', (req, res) => {
+  clearWmsToken();
+  res.json({ success: true, message: 'WMS Token已清除' });
 });
 
 // MES系统代理API
@@ -685,8 +786,11 @@ app.post('/api/mes/workOrder', async (req, res) => {
   try {
     const workOrderData = req.body;
 
+    // 确保有有效的MES Token
+    let mesToken = await ensureMesAuth();
+    
     // 尝试使用当前token下达工单
-    let response = await fetch('http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder', {
+    let response = await fetch(MES_CONFIG.apiUrl, {
       method: 'POST',
       headers: {
         'Accept': 'application/json, text/plain, */*',
@@ -710,7 +814,8 @@ app.post('/api/mes/workOrder', async (req, res) => {
         await refreshMesToken();
 
         // 使用新token重试
-        response = await fetch('http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder', {
+        mesToken = await refreshMesToken();
+        response = await fetch(MES_CONFIG.apiUrl, {
           method: 'POST',
           headers: {
             'Accept': 'application/json, text/plain, */*',
@@ -727,7 +832,7 @@ app.post('/api/mes/workOrder', async (req, res) => {
           body: JSON.stringify(workOrderData)
         });
       } catch (refreshError) {
-        console.error('Token刷新失败:', refreshError);
+        console.error('Token刷新失败: [错误信息已隐藏]');
       }
     }
 
@@ -739,19 +844,50 @@ app.post('/api/mes/workOrder', async (req, res) => {
     const result = await response.json();
     res.json(result);
   } catch (error) {
-    console.error('MES代理请求失败:', error);
+    console.error('MES代理请求失败: [错误信息已隐藏]');
     res.status(500).json({
-      error: error.message,
+      error: 'MES系统连接失败',
       details: '请检查MES系统是否正常运行'
     });
   }
 });
+
+// 定时更新WMS报工数量
+async function updateWmsQuantities() {
+  try {
+    const [orders] = await pool.execute(
+      "SELECT id, orderNo FROM orders WHERE status IN ('生产中', '延期生产中') AND orderNo IS NOT NULL"
+    );
+    
+    for (const order of orders) {
+      try {
+        const quantity = await getOrderQuantity(order.orderNo);
+        await pool.execute(
+          'UPDATE orders SET reportedQuantity = ? WHERE id = ?',
+          [quantity, order.id]
+        );
+        console.log(`✅ 更新工单 ${order.orderNo} 报工数量: ${quantity}`);
+      } catch (error) {
+        console.error(`❌ 更新工单 ${order.orderNo} 失败: [错误信息已隐藏]`);
+      }
+    }
+  } catch (error) {
+    console.error('❌ WMS数量更新任务失败:', error);
+  }
+}
 
 // 启动服务器
 app.listen(PORT, () => {
   console.log(`🚀 GUNT后端服务启动成功！`);
   console.log(`📡 服务地址: http://localhost:${PORT}`);
   console.log(`💾 数据库: MySQL (${dbConfig.host}:${dbConfig.database})`);
+  
+  // 启动定时任务，每5分钟更新一次WMS数量
+  setInterval(updateWmsQuantities, 5 * 60 * 1000);
+  console.log('⏰ WMS数量同步任务已启动 (每5分钟执行一次)');
+  
+  // 立即执行一次
+  setTimeout(updateWmsQuantities, 5000);
 });
 
 // 优雅关闭

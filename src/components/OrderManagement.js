@@ -11,7 +11,8 @@ const OrderManagement = ({
   onFinishOrder,
   onDelayOrder,
   onSubmitWorkOrder,
-  onExportOrders
+  onExportOrders,
+  onUpdateWmsQuantities
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -50,13 +51,21 @@ const OrderManagement = ({
     <div className="p-4 border-b">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">工单管理</h2>
-        <button
-          onClick={() => onExportOrders && onExportOrders()}
-          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
-        >
-          <Download className="w-4 h-4 mr-1" />
-          导出Excel
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => onUpdateWmsQuantities && onUpdateWmsQuantities()}
+            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+          >
+            🔄 更新WMS数量
+          </button>
+          <button
+            onClick={() => onExportOrders && onExportOrders()}
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
+          >
+            <Download className="w-4 h-4 mr-1" />
+            导出Excel
+          </button>
+        </div>
       </div>
       
       {/* 历史已完成工单 */}

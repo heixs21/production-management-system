@@ -556,6 +556,30 @@ const App = () => {
     exportGanttChart();
   }, []);
 
+  // WMS数量更新
+  const handleUpdateWmsQuantities = useCallback(async () => {
+    try {
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${serverUrl}/api/wms/update-quantities`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        alert(result.message);
+        // 重新加载工单数据以显示更新后的数量
+        await loadOrders();
+      } else {
+        alert('WMS数量更新失败: ' + result.error);
+      }
+    } catch (error) {
+      alert('WMS数量更新失败: ' + error.message);
+    }
+  }, [loadOrders]);
+
   // 暂停工单
   const handlePauseOrder = useCallback((order) => {
     setPauseResumeOrder(order);
@@ -682,6 +706,7 @@ const App = () => {
           onDelayOrder={handleDelayOrder}
           onSubmitWorkOrder={handleSubmitWorkOrder}
           onExportOrders={handleExportOrders}
+          onUpdateWmsQuantities={handleUpdateWmsQuantities}
         />
 
         {/* 当前工单生产时间分析 */}
