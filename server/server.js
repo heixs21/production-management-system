@@ -176,6 +176,18 @@ async function initDatabase() {
       }
     }
 
+    // 添加下达状态字段
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN isSubmitted BOOLEAN DEFAULT FALSE
+      `);
+      console.log('✅ 添加 isSubmitted 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ isSubmitted 字段可能已存在');
+      }
+    }
+
     connection.release();
     console.log('✅ 数据库表初始化完成');
   } catch (error) {
@@ -263,7 +275,8 @@ app.get('/api/orders', async (req, res) => {
       producedDays: row.producedDays || 0,
       remainingDays: row.remainingDays || 0,
       originalOrderId: row.originalOrderId,
-      orderComponent: row.orderComponent
+      orderComponent: row.orderComponent,
+      isSubmitted: Boolean(row.isSubmitted)
     }));
     res.json(orders);
   } catch (error) {
@@ -287,8 +300,8 @@ app.post('/api/orders', async (req, res) => {
       machine, orderNo, materialNo, materialName, quantity, priority,
       startDate, expectedEndDate, delayedExpectedEndDate, actualEndDate, reportedQuantity,
       dailyReports, status, isUrgent, isPaused, pausedDate, resumedDate, delayReason,
-      producedDays, remainingDays, originalOrderId, orderComponent
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      producedDays, remainingDays, originalOrderId, orderComponent, isSubmitted
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
       order.machine || null,
@@ -312,7 +325,8 @@ app.post('/api/orders', async (req, res) => {
       order.producedDays || 0,
       order.remainingDays || 0,
       order.originalOrderId || null,
-      order.orderComponent || null
+      order.orderComponent || null,
+      order.isSubmitted ? 1 : 0
     ];
 
     const [result] = await pool.execute(sql, values);
@@ -331,7 +345,7 @@ app.put('/api/orders/:id', async (req, res) => {
       priority = ?, startDate = ?, expectedEndDate = ?, delayedExpectedEndDate = ?, actualEndDate = ?,
       reportedQuantity = ?, dailyReports = ?, status = ?, isUrgent = ?,
       isPaused = ?, pausedDate = ?, resumedDate = ?, delayReason = ?,
-      producedDays = ?, remainingDays = ?, originalOrderId = ?, orderComponent = ?
+      producedDays = ?, remainingDays = ?, originalOrderId = ?, orderComponent = ?, isSubmitted = ?
       WHERE id = ?`;
 
     const values = [
@@ -357,6 +371,7 @@ app.put('/api/orders/:id', async (req, res) => {
       order.remainingDays || 0,
       order.originalOrderId || null,
       order.orderComponent || null,
+      order.isSubmitted ? 1 : 0,
       req.params.id
     ];
 

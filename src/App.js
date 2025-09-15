@@ -130,6 +130,7 @@ const App = () => {
     expectedEndDate: "",
     actualEndDate: "",
     reportedQuantity: "",
+    isSubmitted: false,
   });
   const [pasteData, setPasteData] = useState("");
   const [urgentOrder, setUrgentOrder] = useState({
@@ -142,6 +143,7 @@ const App = () => {
     startDate: "",
     expectedEndDate: "",
     reportedQuantity: "",
+    isSubmitted: false,
   });
 
   const [newMaterial, setNewMaterial] = useState({
@@ -277,6 +279,7 @@ const App = () => {
         expectedEndDate: "",
         actualEndDate: "",
         reportedQuantity: "",
+        isSubmitted: false,
       });
       setShowAddForm(false);
     } catch (err) {
@@ -334,6 +337,7 @@ const App = () => {
         startDate: "",
         expectedEndDate: "",
         reportedQuantity: "",
+        isSubmitted: false,
       });
       setShowUrgentForm(false);
     } catch (err) {
@@ -403,6 +407,13 @@ const App = () => {
     try {
       setSubmitLoading(true);
       await workOrderApi.submit(workOrderData);
+      
+      // 更新工单状态为已下达
+      await updateOrder({
+        ...submittingOrder,
+        isSubmitted: true
+      });
+      
       setShowSubmitWorkOrderModal(false);
       setSubmittingOrder(null);
       alert('工单下达成功！');
@@ -411,7 +422,7 @@ const App = () => {
     } finally {
       setSubmitLoading(false);
     }
-  }, []);
+  }, [submittingOrder, updateOrder]);
 
   // 刷新MES Token
   const handleRefreshToken = useCallback(async () => {

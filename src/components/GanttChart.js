@@ -197,7 +197,7 @@ const GanttChart = ({
                             return (
                               <div
                                 key={orderNo}
-                                className={`order-group ${groupColor.bg} ${groupColor.border} border rounded-lg p-1 ${groupColor.shadow} shadow-sm`}
+                                className="order-group border rounded-lg p-1 shadow-sm"
                               >
                                 {/* 工单编号标签 - 始终显示 */}
                                 <div className="text-xs font-semibold text-gray-700 mb-1 text-center bg-white bg-opacity-50 rounded px-1">
@@ -219,12 +219,12 @@ const GanttChart = ({
                                       cardColor = 'bg-gray-400';
                                     } else if (order.isPaused) {
                                       cardColor = 'bg-orange-400';
-                                    } else if (order.status === '延期生产中') {
-                                      cardColor = 'bg-red-400';
-                                    } else if (order.isUrgent) {
-                                      cardColor = 'bg-red-500';
+                                    } else if (order.status === '生产中') {
+                                      cardColor = 'bg-green-400';
+                                    } else if (order.status === '未开始') {
+                                      cardColor = 'bg-blue-300 opacity-60';
                                     } else {
-                                      cardColor = colors[(order.priority - 1) % colors.length];
+                                      cardColor = 'bg-blue-400';
                                     }
 
                                     return (
@@ -234,9 +234,9 @@ const GanttChart = ({
                                         onDragStart={(e) => !isCompleted && onDragStart(e, order)}
                                         className={`order-card ${cardColor} text-white p-1 rounded text-xs min-w-8 flex-1
                                           ${isCompleted ? 'cursor-default' : 'cursor-move'}
-                                          hover:shadow-md transition-all duration-200 ${
+                                          transition-all duration-200 ${
                                             draggedOrder?.id === order.id ? 'opacity-50' : ''
-                                          } ${order.isUrgent ? 'ring-1 ring-red-300' : ''}`}
+                                          }`}
                                         title={`${order.orderNo} - ${order.materialName}\n优先度: ${order.isUrgent ? '紧急' : order.priority}\n状态: ${order.status}\n计划: ${order.startDate} 至 ${order.expectedEndDate}${order.delayedExpectedEndDate ? `\n延期预计: ${order.delayedExpectedEndDate}` : ''}${order.actualEndDate ? `\n实际结束: ${order.actualEndDate}` : ''}${order.reportedQuantity ? `\n报工数量: ${order.reportedQuantity}/${order.quantity}` : ''}`}
                                       >
                                         {/* 简化显示：优先级 + 状态图标 + 报工按钮 */}
@@ -321,42 +321,27 @@ const GanttChart = ({
       <div className="mt-4 p-3 bg-gray-50 rounded-lg">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-6">
-            <span className="font-medium text-gray-700">优先级:</span>
-            <div className="flex items-center space-x-3">
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-blue-500 rounded"></div>
-                <span className="text-xs">P1</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-green-500 rounded"></div>
-                <span className="text-xs">P2</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-yellow-500 rounded"></div>
-                <span className="text-xs">P3</span>
-              </div>
-              <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-red-600 border-2 border-red-300 rounded"></div>
-                <span className="text-xs">🚨紧急</span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center space-x-6">
             <span className="font-medium text-gray-700">状态:</span>
             <div className="flex items-center space-x-3">
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-gray-400 rounded"></div>
-                <span className="text-xs">✅已完成</span>
+                <div className="w-3 h-3 bg-blue-300 opacity-60 rounded"></div>
+                <span className="text-xs">未开始</span>
               </div>
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-red-500 rounded"></div>
-                <span className="text-xs">⚠️延期部分</span>
+                <div className="w-3 h-3 bg-green-400 rounded"></div>
+                <span className="text-xs">生产中</span>
               </div>
               <div className="flex items-center space-x-1">
                 <div className="w-3 h-3 bg-orange-400 rounded"></div>
-                <span className="text-xs">⏸️暂停中</span>
+                <span className="text-xs">暂停中</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-gray-400 rounded"></div>
+                <span className="text-xs">已完成</span>
+              </div>
+              <div className="flex items-center space-x-1">
+                <div className="w-3 h-3 bg-red-400 rounded"></div>
+                <span className="text-xs">延期部分</span>
               </div>
             </div>
           </div>

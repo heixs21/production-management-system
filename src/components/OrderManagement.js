@@ -228,7 +228,9 @@ const OrderManagement = ({
             </thead>
             <tbody>
               {activeOrders.map((order) => (
-                <tr key={order.id} className="border-b hover:bg-gray-50">
+                <tr key={order.id} className={`border-b hover:bg-gray-50 ${
+                  order.status === '生产中' ? 'bg-yellow-50' : ''
+                }`}>
                   <td className="p-2 font-medium">{order.orderNo}</td>
                   <td className="p-2">{order.machine}</td>
                   <td className="p-2">{order.materialName}</td>
@@ -304,10 +306,15 @@ const OrderManagement = ({
                       </button>
                       <button
                         onClick={() => onSubmitWorkOrder && onSubmitWorkOrder(order)}
-                        className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                        title="下达工单"
+                        disabled={order.isSubmitted}
+                        className={`p-1 rounded ${
+                          order.isSubmitted 
+                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
+                            : 'text-blue-600 hover:bg-blue-100'
+                        }`}
+                        title={order.isSubmitted ? '已下达' : '下达工单'}
                       >
-                        📤
+                        {order.isSubmitted ? '✓' : '📤'}
                       </button>
                     </div>
                   </td>
