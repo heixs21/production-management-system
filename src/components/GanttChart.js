@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { getDateDisplay, getOrdersForMachineAndDate, isDateInDelayedPortion, getPriorityColors, getOrderGroupColor } from '../utils/orderUtils';
 
 const GanttChart = ({
@@ -14,6 +14,26 @@ const GanttChart = ({
 }) => {
   const colors = getPriorityColors();
   const [zoomLevel, setZoomLevel] = useState(100); // 缩放比例，100为默认
+  const scrollContainerRef = useRef(null);
+  
+  // 自动滚动到今天
+  useEffect(() => {
+    if (scrollContainerRef.current && dateRange && dateRange.length > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      const todayIndex = dateRange.findIndex(date => date === today);
+      
+      if (todayIndex !== -1) {
+        // 计算滚动位置：机台列宽度 + 今天之前的日期列宽度 - 一些偏移量
+        const machineColumnWidth = 128;
+        const dateColumnWidth = 128;
+        const scrollPosition = machineColumnWidth + (todayIndex * dateColumnWidth) - 200;
+        
+        setTimeout(() => {
+          scrollContainerRef.current.scrollLeft = Math.max(0, scrollPosition);
+        }, 100);
+      }
+    }
+  }, [dateRange]);
   
   // 调试信息
   console.log('甘特图组件调试:', {
@@ -72,7 +92,7 @@ const GanttChart = ({
       </div>
       
       {/* 统一滚动的甘特图 */}
-      <div className="border rounded-lg overflow-x-auto bg-white gantt-content">
+      <div ref={scrollContainerRef} className="border rounded-lg overflow-x-auto bg-white gantt-content">
         <div style={{
           minWidth: `${128 * zoomLevel / 100 + dateRange.length * 128 * zoomLevel / 100}px`,
           width: 'fit-content',
@@ -284,38 +304,7 @@ const GanttChart = ({
         </div>
       </div>
 
-      {/* 工单状态信息 */}
-      <div className="mt-4 p-3 bg-blue-50 rounded-lg">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">工单状态信息</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs">
-          {orders.map(order => (
-            <div key={order.id} className="flex items-center justify-between p-2 bg-white rounded border">
-              <div className="flex items-center space-x-2">
-                <span className="font-medium">{order.orderNo}</span>
-                <div className="flex items-center space-x-1">
-                  {order.isUrgent && <span>🚨</span>}
-                  {order.actualEndDate && new Date(order.actualEndDate) > new Date(order.expectedEndDate) && <span>⚠️</span>}
-                  {order.actualEndDate && <span>✅</span>}
-                  {order.isPaused && <span>⏸️</span>}
-                </div>
-              </div>
-              <div className="text-right">
-                <div className="text-gray-600">{order.status}</div>
-                {order.reportedQuantity > 0 && (
-                  <div className="text-blue-600">
-                    {order.reportedQuantity}/{order.quantity}
-                  </div>
-                )}
-                {order.delayReason && (
-                  <div className="text-red-600 text-xs">
-                    延期原因: {order.delayReason}
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+
 
       {/* 详细的图例 */}
       <div className="mt-4 p-3 bg-gray-50 rounded-lg">

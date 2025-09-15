@@ -474,7 +474,7 @@ export const UrgentOrderModal = ({
 
           <input
             type="text"
-            placeholder="报工数量"
+            placeholder="入库数量"
             value={orderData.reportedQuantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, reportedQuantity: e.target.value })}
             className="w-full p-2 border rounded border-red-200"
@@ -624,7 +624,7 @@ export const ReportWorkModal = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg w-96">
         <h3 className="text-lg font-semibold mb-4 flex items-center">
-          📝 工单报工
+          📝 工单入库
         </h3>
 
         <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
@@ -634,22 +634,22 @@ export const ReportWorkModal = ({
             <div>物料：{order.materialName}</div>
             <div>报工日期：{date}</div>
             <div>计划数量：{order.quantity}</div>
-            <div>总已报工：{order.reportedQuantity || 0}</div>
-            <div>当日已报工：{order.dailyReports && order.dailyReports[date] ? order.dailyReports[date] : 0}</div>
+            <div>总已入库：{order.reportedQuantity || 0}</div>
+            <div>当日已入库：{order.dailyReports && order.dailyReports[date] ? order.dailyReports[date] : 0}</div>
           </div>
         </div>
 
         <div className="space-y-3">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              当日报工数量
+              当日入库数量
             </label>
             <input
               type="text"
               value={reportedQuantity}
               onChange={(e) => setReportedQuantity(e.target.value)}
               className="w-full p-2 border rounded"
-              placeholder="输入当日完成数量"
+              placeholder="输入当日入库数量"
               style={{ MozAppearance: 'textfield' }}
             />
           </div>
@@ -680,7 +680,7 @@ export const ReportWorkModal = ({
             onClick={handleConfirm}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
           >
-            📝 确认报工
+            📝 确认入库
           </button>
         </div>
       </div>
@@ -846,7 +846,7 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              总报工数量
+              总入库数量
             </label>
             <input
               type="text"

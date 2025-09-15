@@ -453,10 +453,9 @@ const SAP_SERVICE = 'sap_system';
 const MES_CONFIG = {
   tokenUrl: 'http://192.168.33.112:43352/connect/token',
   apiUrl: 'http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder',
-  username: process.env.MES_USERNAME || 'admin',
-  password: process.env.MES_PASSWORD || '1q2w3E*',
+  username: process.env.MES_USERNAME || '',
+  password: process.env.MES_PASSWORD || '',
   clientId: 'AGVPlatform_App',
-  clientSecret: '1q2w3e*'
 };
 
 // 获取新的MES Token
@@ -472,10 +471,7 @@ async function refreshMesToken() {
         'Cache-Control': 'no-cache',
         'Connection': 'keep-alive',
         'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8',
-        'Origin': 'http://192.168.33.112:9527',
         'Pragma': 'no-cache',
-        'Referer': 'http://192.168.33.112:9527/',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36'
       },
       body
     });

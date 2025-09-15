@@ -5,10 +5,7 @@ const Header = ({
   onShowMachineForm,
   onShowPasteDialog,
   onShowAddForm,
-  onShowUrgentForm,
-  onRefreshToken,
-  onRefreshSapToken,
-  tokenRefreshing
+  onShowUrgentForm
 }) => {
   return (
     <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
@@ -17,24 +14,6 @@ const Header = ({
         生产甘特图管理系统
       </h1>
       <div className="flex gap-2">
-        <button
-          onClick={onRefreshToken}
-          disabled={tokenRefreshing}
-          className="bg-green-600 hover:bg-green-500 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:bg-gray-500"
-          title="刷新MES系统Token"
-        >
-          🔄
-          {tokenRefreshing ? '刷新中...' : 'MES Token'}
-        </button>
-        <button
-          onClick={onRefreshSapToken}
-          disabled={tokenRefreshing}
-          className="bg-orange-600 hover:bg-orange-500 px-3 py-2 rounded-lg flex items-center gap-2 transition-colors disabled:bg-gray-500"
-          title="刷新SAP系统Token"
-        >
-          🔄
-          SAP
-        </button>
         <button
           onClick={onShowMachineForm}
           className="bg-purple-500 hover:bg-purple-400 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"

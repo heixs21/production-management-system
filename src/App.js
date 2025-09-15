@@ -104,7 +104,6 @@ const App = () => {
   const [showSubmitWorkOrderModal, setShowSubmitWorkOrderModal] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
-  const [tokenRefreshing, setTokenRefreshing] = useState(false);
   const [editingOrder, setEditingOrder] = useState(null);
   const [pauseResumeOrder, setPauseResumeOrder] = useState(null);
   const [pauseResumeAction, setPauseResumeAction] = useState('pause');
@@ -424,55 +423,7 @@ const App = () => {
     }
   }, [submittingOrder, updateOrder]);
 
-  // 刷新MES Token
-  const handleRefreshToken = useCallback(async () => {
-    try {
-      setTokenRefreshing(true);
-      const serverUrl = `http://${window.location.hostname}:12454`;
-      const response = await fetch(`${serverUrl}/api/mes/refresh-token`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
 
-      const result = await response.json();
-      if (result.success) {
-        alert('MES Token刷新成功！');
-      } else {
-        alert('MES Token刷新失败: ' + result.error);
-      }
-    } catch (error) {
-      alert('MES Token刷新失败: ' + error.message);
-    } finally {
-      setTokenRefreshing(false);
-    }
-  }, []);
-
-  // 刷新SAP Token
-  const handleRefreshSapToken = useCallback(async () => {
-    try {
-      setTokenRefreshing(true);
-      const serverUrl = `http://${window.location.hostname}:12454`;
-      const response = await fetch(`${serverUrl}/api/sap/refresh-auth`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      const result = await response.json();
-      if (result.success) {
-        alert('SAP Token刷新成功！');
-      } else {
-        alert('SAP Token刷新失败: ' + result.error);
-      }
-    } catch (error) {
-      alert('SAP Token刷新失败: ' + error.message);
-    } finally {
-      setTokenRefreshing(false);
-    }
-  }, []);
 
   // 物料处理函数
   const handleAddMaterial = useCallback(async () => {
@@ -665,9 +616,6 @@ const App = () => {
           onShowPasteDialog={() => setShowPasteDialog(true)}
           onShowAddForm={() => setShowAddForm(true)}
           onShowUrgentForm={() => setShowUrgentForm(true)}
-          onRefreshToken={handleRefreshToken}
-          onRefreshSapToken={handleRefreshSapToken}
-          tokenRefreshing={tokenRefreshing}
         />
         
         {/* 生产看板链接 */}

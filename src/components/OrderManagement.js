@@ -14,6 +14,7 @@ const OrderManagement = ({
   onExportOrders,
   onUpdateWmsQuantities
 }) => {
+  const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
@@ -68,6 +69,30 @@ const OrderManagement = ({
         </div>
       </div>
       
+      {/* 标签切换 */}
+      <div className="flex border-b mb-4">
+        <button
+          onClick={() => setActiveTab('current')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'current'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          当前工单 ({activeOrders.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'completed'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          历史已完成 ({completedOrders.length})
+        </button>
+      </div>
+      
       {/* 历史已完成工单 */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
@@ -113,7 +138,7 @@ const OrderManagement = ({
                 <th className="p-2 text-left">开始日期</th>
                 <th className="p-2 text-left">预计结束</th>
                 <th className="p-2 text-left">实际结束</th>
-                <th className="p-2 text-left">报工数量</th>
+                <th className="p-2 text-left">入库数量</th>
                 <th className="p-2 text-left">状态</th>
                 <th className="p-2 text-left">操作</th>
               </tr>
@@ -266,7 +291,7 @@ const OrderManagement = ({
                       <th className="p-2 text-left">优先度</th>
                       <th className="p-2 text-left">开始日期</th>
                       <th className="p-2 text-left">预计结束日期</th>
-                      <th className="p-2 text-left">报工数量</th>
+                      <th className="p-2 text-left">入库数量</th>
                       <th className="p-2 text-left">工单状态</th>
                       <th className="p-2 text-left">操作</th>
                     </tr>
