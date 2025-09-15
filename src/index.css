@@ -120,6 +120,17 @@
   }
 }
 
+/* 隐藏数字输入框的滚动条 */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
 /* 打印样式 */
 @media print {
   .no-print {

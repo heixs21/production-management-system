@@ -74,24 +74,20 @@ export const MachineModal = ({
             <option value="停机">停机</option>
           </select>
           <input
-            type="number"
-            step="0.01"
-            min="0"
-            max="1"
+            type="text"
             placeholder="OEE (0-1之间的小数，可选)"
             value={machineData.oee || ''}
             onChange={(e) => onMachineChange({ ...machineData, oee: parseFloat(e.target.value) || null })}
             className="w-full p-2 border rounded"
+            style={{ MozAppearance: 'textfield' }}
           />
           <input
-            type="number"
-            step="0.01"
-            min="0.1"
-            max="10"
+            type="text"
             placeholder="时间系数 (默认1.00)"
             value={machineData.coefficient || ''}
             onChange={(e) => onMachineChange({ ...machineData, coefficient: parseFloat(e.target.value) || 1.00 })}
             className="w-full p-2 border rounded"
+            style={{ MozAppearance: 'textfield' }}
           />
         </div>
         <div className="flex justify-end gap-2 mt-4">
@@ -262,20 +258,22 @@ export const OrderModal = ({
           />
 
           <input
-            type="number"
+            type="text"
             placeholder="数量"
             value={orderData.quantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, quantity: e.target.value })}
             className="w-full p-2 border rounded bg-gray-50"
             title="从SAP自动获取"
+            style={{ MozAppearance: 'textfield' }}
           />
 
           <input
-            type="number"
+            type="text"
             placeholder="优先度"
-            value={orderData.priority}
+            value={orderData.priority || ''}
             onChange={(e) => onOrderChange({ ...orderData, priority: parseInt(e.target.value) || 1 })}
             className="w-full p-2 border rounded"
+            style={{ MozAppearance: 'textfield' }}
           />
 
           <div className="space-y-2">
@@ -445,12 +443,13 @@ export const UrgentOrderModal = ({
           />
 
           <input
-            type="number"
+            type="text"
             placeholder="数量"
             value={orderData.quantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, quantity: e.target.value })}
             className="w-full p-2 border rounded border-red-200 bg-red-50"
             title="从SAP自动获取"
+            style={{ MozAppearance: 'textfield' }}
           />
 
           <div className="space-y-2">
@@ -474,11 +473,12 @@ export const UrgentOrderModal = ({
           </div>
 
           <input
-            type="number"
+            type="text"
             placeholder="报工数量"
-            value={orderData.reportedQuantity}
+            value={orderData.reportedQuantity || ''}
             onChange={(e) => onOrderChange({ ...orderData, reportedQuantity: e.target.value })}
             className="w-full p-2 border rounded border-red-200"
+            style={{ MozAppearance: 'textfield' }}
           />
         </div>
 
@@ -645,13 +645,12 @@ export const ReportWorkModal = ({
               当日报工数量
             </label>
             <input
-              type="number"
+              type="text"
               value={reportedQuantity}
               onChange={(e) => setReportedQuantity(e.target.value)}
-              min="0"
-              max={order.quantity}
               className="w-full p-2 border rounded"
               placeholder="输入当日完成数量"
+              style={{ MozAppearance: 'textfield' }}
             />
           </div>
 
@@ -734,11 +733,12 @@ export const MaterialModal = ({
             className="w-full p-2 border rounded"
           />
           <input
-            type="number"
+            type="text"
             placeholder="实际节拍(秒/件)"
-            value={materialData.actualTakt}
+            value={materialData.actualTakt || ''}
             onChange={(e) => onMaterialChange({ ...materialData, actualTakt: e.target.value })}
             className="w-full p-2 border rounded"
+            style={{ MozAppearance: 'textfield' }}
           />
         </div>
 
@@ -849,15 +849,15 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
               总报工数量
             </label>
             <input
-              type="number"
-              value={totalReportedQuantity}
+              type="text"
+              value={totalReportedQuantity || ''}
               onChange={(e) => {
                 setTotalReportedQuantity(parseInt(e.target.value) || 0);
                 setErrors([]); // 清除错误信息
               }}
-              min="0"
               className="w-full p-2 border rounded"
               placeholder={`计划数量: ${order?.quantity}（可多做或少做）`}
+              style={{ MozAppearance: 'textfield' }}
             />
             <div className="text-xs text-gray-500 mt-1">
               计划数量: {order?.quantity}，实际可以多做或少做
@@ -1098,11 +1098,12 @@ export const SubmitWorkOrderModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">产成品数量</label>
             <input
-              type="number"
+              type="text"
               placeholder="请输入"
-              value={formData.quantity}
+              value={formData.quantity || ''}
               onChange={(e) => setFormData({ ...formData, quantity: parseInt(e.target.value) || '' })}
               className="w-full p-2 border rounded"
+              style={{ MozAppearance: 'textfield' }}
             />
           </div>
 
@@ -1120,11 +1121,12 @@ export const SubmitWorkOrderModal = ({
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">优先级</label>
             <input
-              type="number"
+              type="text"
               placeholder="请输入"
-              value={formData.priority}
+              value={formData.priority || ''}
               onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || '' })}
               className="w-full p-2 border rounded"
+              style={{ MozAppearance: 'textfield' }}
             />
           </div>
         </div>

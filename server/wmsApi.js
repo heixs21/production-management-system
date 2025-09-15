@@ -6,8 +6,8 @@ const WMS_SERVICE = 'wms_system';
 // WMS配置
 const WMS_CONFIG = {
   baseUrl: process.env.WMS_BASE_URL || 'http://192.168.33.20:9000/wms',
-  username: process.env.WMS_USERNAME || 'admin2',
-  password: process.env.WMS_PASSWORD || 'admin2'
+  username: process.env.WMS_USERNAME || '',
+  password: process.env.WMS_PASSWORD || ''
 };
 
 // 获取WMS Token
