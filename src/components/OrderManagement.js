@@ -128,10 +128,8 @@ const OrderManagement = ({
                       </span>
                     </td>
                     <td className="p-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        isDelayed ? 'text-red-600 bg-red-100' : 'text-green-600 bg-green-100'
-                      }`}>
-                        {isDelayed ? '延期完成' : '正常完成'}
+                      <span className="px-2 py-1 rounded-full text-xs font-medium text-green-600 bg-green-100">
+                        已完成
                       </span>
                     </td>
                     <td className="p-2 text-center">
