@@ -220,7 +220,7 @@ const GanttChart = ({
                                     } else if (order.isPaused) {
                                       cardColor = 'bg-orange-400';
                                     } else if (order.status === '生产中') {
-                                      cardColor = 'bg-green-300';
+                                      cardColor = 'bg-green-400';
                                     } else if (order.status === '未开始') {
                                       cardColor = 'bg-blue-300 opacity-60';
                                     } else {
@@ -328,7 +328,7 @@ const GanttChart = ({
                 <span className="text-xs">未开始</span>
               </div>
               <div className="flex items-center space-x-1">
-                <div className="w-3 h-3 bg-green-300 rounded"></div>
+                <div className="w-3 h-3 bg-green-400 rounded"></div>
                 <span className="text-xs">生产中</span>
               </div>
               <div className="flex items-center space-x-1">

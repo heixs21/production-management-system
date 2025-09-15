@@ -307,6 +307,18 @@ export const OrderModal = ({
               className="w-full p-2 border rounded"
             />
           </div>
+
+          {orderData.actualEndDate && (
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-gray-700">实际结束日期</label>
+              <input
+                type="date"
+                value={orderData.actualEndDate}
+                onChange={(e) => onOrderChange({ ...orderData, actualEndDate: e.target.value })}
+                className="w-full p-2 border rounded"
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 mt-4">

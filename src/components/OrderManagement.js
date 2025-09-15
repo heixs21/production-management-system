@@ -208,119 +208,135 @@ const OrderManagement = ({
           当前工单 ({activeOrders.length})
         </h3>
         
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-blue-50">
-                <th className="p-2 text-left">工单号</th>
-                <th className="p-2 text-left">机台</th>
-                <th className="p-2 text-left">物料名称</th>
-                <th className="p-2 text-left">数量</th>
-                <th className="p-2 text-left">优先度</th>
-                <th className="p-2 text-left">开始日期</th>
-                <th className="p-2 text-left">预计结束日期</th>
-                <th className="p-2 text-left">报工数量</th>
-                <th className="p-2 text-left">工单状态</th>
-                <th className="p-2 text-left">操作</th>
-              </tr>
-            </thead>
-            <tbody>
-              {activeOrders.map((order) => (
-                <tr key={order.id} className={`border-b hover:bg-gray-50 ${
-                  order.status === '生产中' ? 'bg-yellow-50' : ''
-                }`}>
-                  <td className="p-2 font-medium">{order.orderNo}</td>
-                  <td className="p-2">{order.machine}</td>
-                  <td className="p-2">{order.materialName}</td>
-                  <td className="p-2 text-center">{order.quantity}</td>
-                  <td className="p-2 text-center">
-                    {order.isUrgent ? (
-                      <span className="text-red-600 font-bold">紧急</span>
-                    ) : (
-                      order.priority
-                    )}
-                  </td>
-                  <td className="p-2">{formatDateOnly(order.startDate)}</td>
-                  <td className="p-2">{formatDateOnly(order.expectedEndDate)}</td>
-                  <td className="p-2 text-center">
-                    <span className="text-blue-600 font-medium">
-                      {order.reportedQuantity || 0}
-                    </span>
-                    <span className="text-gray-400 text-xs ml-1">
-                      / {order.quantity}
-                    </span>
-                  </td>
-                  <td className="p-2">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'text-gray-600 bg-gray-100'}`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="p-2">
-                    <div className="flex space-x-1">
-                      <button
-                        onClick={() => onEditOrder(order)}
-                        className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                        title="编辑"
-                      >
-                        <Edit3 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => onDeleteOrder(order.id)}
-                        className="p-1 text-red-600 hover:bg-red-100 rounded"
-                        title="删除"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                      {order.isPaused ? (
-                        <button
-                          onClick={() => onResumeOrder(order)}
-                          className="p-1 text-green-600 hover:bg-green-100 rounded"
-                          title="恢复"
-                        >
-                          ▶️
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => onPauseOrder(order)}
-                          className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                          title="暂停"
-                        >
-                          ⏸️
-                        </button>
-                      )}
-                      <button
-                        onClick={() => onFinishOrder(order)}
-                        className="p-1 text-green-600 hover:bg-green-100 rounded"
-                        title="结束工单"
-                      >
-                        ✅
-                      </button>
-                      <button
-                        onClick={() => onDelayOrder(order)}
-                        className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                        title="设置延期预计结束日期"
-                      >
-                        ⏰
-                      </button>
-                      <button
-                        onClick={() => onSubmitWorkOrder && onSubmitWorkOrder(order)}
-                        disabled={order.isSubmitted}
-                        className={`p-1 rounded ${
-                          order.isSubmitted 
-                            ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
-                            : 'text-blue-600 hover:bg-blue-100'
-                        }`}
-                        title={order.isSubmitted ? '已下达' : '下达工单'}
-                      >
-                        {order.isSubmitted ? '✓' : '📤'}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {(() => {
+          // 按机台分组
+          const ordersByMachine = activeOrders.reduce((groups, order) => {
+            if (!groups[order.machine]) {
+              groups[order.machine] = [];
+            }
+            groups[order.machine].push(order);
+            return groups;
+          }, {});
+
+          return Object.entries(ordersByMachine).map(([machine, orders]) => (
+            <div key={machine} className="mb-6">
+              <h4 className="text-md font-semibold text-gray-700 mb-3 bg-gray-100 p-2 rounded">
+                {machine} ({orders.length}个工单)
+              </h4>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-blue-50">
+                      <th className="p-2 text-left">工单号</th>
+                      <th className="p-2 text-left">物料名称</th>
+                      <th className="p-2 text-left">数量</th>
+                      <th className="p-2 text-left">优先度</th>
+                      <th className="p-2 text-left">开始日期</th>
+                      <th className="p-2 text-left">预计结束日期</th>
+                      <th className="p-2 text-left">报工数量</th>
+                      <th className="p-2 text-left">工单状态</th>
+                      <th className="p-2 text-left">操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {orders.map((order) => (
+                      <tr key={order.id} className={`border-b hover:bg-gray-50 ${
+                        order.status === '生产中' ? 'bg-yellow-50' : ''
+                      }`}>
+                        <td className="p-2 font-medium">{order.orderNo}</td>
+                        <td className="p-2">{order.materialName}</td>
+                        <td className="p-2 text-center">{order.quantity}</td>
+                        <td className="p-2 text-center">
+                          {order.isUrgent ? (
+                            <span className="text-red-600 font-bold">紧急</span>
+                          ) : (
+                            order.priority
+                          )}
+                        </td>
+                        <td className="p-2">{formatDateOnly(order.startDate)}</td>
+                        <td className="p-2">{formatDateOnly(order.expectedEndDate)}</td>
+                        <td className="p-2 text-center">
+                          <span className="text-blue-600 font-medium">
+                            {order.reportedQuantity || 0}
+                          </span>
+                          <span className="text-gray-400 text-xs ml-1">
+                            / {order.quantity}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'text-gray-600 bg-gray-100'}`}>
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-2">
+                          <div className="flex space-x-1">
+                            <button
+                              onClick={() => onEditOrder(order)}
+                              className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                              title="编辑"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => onDeleteOrder(order.id)}
+                              className="p-1 text-red-600 hover:bg-red-100 rounded"
+                              title="删除"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            {order.isPaused ? (
+                              <button
+                                onClick={() => onResumeOrder(order)}
+                                className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                title="恢复"
+                              >
+                                ▶️
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => onPauseOrder(order)}
+                                className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+                                title="暂停"
+                              >
+                                ⏸️
+                              </button>
+                            )}
+                            <button
+                              onClick={() => onFinishOrder(order)}
+                              className="p-1 text-green-600 hover:bg-green-100 rounded"
+                              title="结束工单"
+                            >
+                              ✅
+                            </button>
+                            <button
+                              onClick={() => onDelayOrder(order)}
+                              className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+                              title="设置延期预计结束日期"
+                            >
+                              ⏰
+                            </button>
+                            <button
+                              onClick={() => onSubmitWorkOrder && onSubmitWorkOrder(order)}
+                              disabled={order.isSubmitted}
+                              className={`p-1 rounded ${
+                                order.isSubmitted 
+                                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
+                                  : 'text-blue-600 hover:bg-blue-100'
+                              }`}
+                              title={order.isSubmitted ? '已下达' : '下达工单'}
+                            >
+                              {order.isSubmitted ? '✓' : '📤'}
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ));
+        })()}
       </div>
     </div>
   );
