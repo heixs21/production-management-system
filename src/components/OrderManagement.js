@@ -247,11 +247,8 @@ const OrderManagement = ({
 
       {/* 当前工单区域 */}
       {activeTab === 'current' && (
-        <h3 className="text-md font-medium text-gray-700 mb-3">
-          当前工单 ({activeOrders.length})
-        </h3>
-        
-        {(() => {
+        <div>
+          {(() => {
           // 按机台分组
           const ordersByMachine = activeOrders.reduce((groups, order) => {
             if (!groups[order.machine]) {
@@ -389,8 +386,9 @@ const OrderManagement = ({
                 </table>
               </div>
             </div>
-          ));
-        })()}
+          })()}
+        </div>
+      )}}
       </div>
     </div>
   );
