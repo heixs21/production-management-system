@@ -80,7 +80,20 @@ const OrderManagement = ({
         </div>
 
         <div className="overflow-x-auto bg-gray-50 rounded">
-          <table className="w-full text-sm">
+          <table className="w-full text-sm table-fixed">
+            <colgroup>
+              <col className="w-24" />
+              <col className="w-20" />
+              <col className="w-40" />
+              <col className="w-16" />
+              <col className="w-16" />
+              <col className="w-24" />
+              <col className="w-24" />
+              <col className="w-24" />
+              <col className="w-20" />
+              <col className="w-16" />
+              <col className="w-24" />
+            </colgroup>
             <thead>
               <tr className="bg-gray-100">
                 <th className="p-2 text-left">工单号</th>
@@ -224,7 +237,18 @@ const OrderManagement = ({
                 {machine} ({orders.length}个工单)
               </h4>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm table-fixed">
+                  <colgroup>
+                    <col className="w-24" />
+                    <col className="w-40" />
+                    <col className="w-16" />
+                    <col className="w-16" />
+                    <col className="w-24" />
+                    <col className="w-24" />
+                    <col className="w-20" />
+                    <col className="w-16" />
+                    <col className="w-32" />
+                  </colgroup>
                   <thead>
                     <tr className="bg-blue-50">
                       <th className="p-2 text-left">工单号</th>
