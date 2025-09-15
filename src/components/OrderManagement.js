@@ -94,12 +94,9 @@ const OrderManagement = ({
       </div>
       
       {/* 历史已完成工单 */}
-      <div className="mb-6">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-md font-medium text-gray-700">
-            历史已完成工单 ({filteredCompletedOrders.length})
-          </h3>
-          <div className="flex items-center space-x-2">
+      {activeTab === 'completed' && (
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-3">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-2 top-2.5 text-gray-400" />
               <input
@@ -111,7 +108,6 @@ const OrderManagement = ({
               />
             </div>
           </div>
-        </div>
 
         <div className="overflow-x-auto bg-gray-50 rounded">
           <table className="w-full text-sm table-fixed">
@@ -246,11 +242,11 @@ const OrderManagement = ({
               </button>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* 当前工单区域 */}
-      <div>
+      {activeTab === 'current' && (
         <h3 className="text-md font-medium text-gray-700 mb-3">
           当前工单 ({activeOrders.length})
         </h3>
