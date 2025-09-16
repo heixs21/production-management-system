@@ -17,10 +17,6 @@ app.use(cors({
     'http://192.168.1.114',
     'http://192.168.36.9:3000',
     'http://192.168.100.30:3000',
-    // Ubuntu服务器可能的地址
-    /^http:\/\/192\.168\./,
-    /^http:\/\/10\./,
-    /^http:\/\/172\./
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -673,8 +669,8 @@ app.post('/api/sap/order-material', async (req, res) => {
       password: process.env.SAP_RFC_PASSWORD ? '已设置' : '未设置'
     });
     
-    // 尝试使用python3，如果失败则使用python
-    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    // 优先使用环境变量指定的Python路径，否则使用默认命令
+    const pythonCmd = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
     const python = spawn(pythonCmd, [pythonScript, orderNo], {
       env: {
         ...process.env,
