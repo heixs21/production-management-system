@@ -5,6 +5,10 @@ import os
 import sys
 import json
 from pyrfc import Connection
+from dotenv import load_dotenv
+
+# 加载环境变量
+load_dotenv()
 
 # 设置输出编码为UTF-8
 sys.stdout.reconfigure(encoding='utf-8')
