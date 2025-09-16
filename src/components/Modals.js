@@ -179,7 +179,9 @@ export const OrderModal = ({
             ...orderData,
             materialNo: result.data.materialNo,
             materialName: result.data.materialName,
-            quantity: result.data.quantity
+            quantity: result.data.quantity,
+            orderComponent: result.data.orderComponent,
+            componentDescription: result.data.componentDescription
           });
         } else {
           alert('获取物料信息失败: ' + result.error);
@@ -254,7 +256,16 @@ export const OrderModal = ({
             placeholder="工单组件"
             value={orderData.orderComponent || ''}
             onChange={(e) => onOrderChange({ ...orderData, orderComponent: e.target.value })}
-            className="w-full p-2 border rounded"
+            className="w-full p-2 border rounded bg-gray-50"
+            title="从SAP自动获取"
+          />
+
+          <textarea
+            placeholder="组件描述"
+            value={orderData.componentDescription || ''}
+            onChange={(e) => onOrderChange({ ...orderData, componentDescription: e.target.value })}
+            className="w-full p-2 border rounded bg-gray-50 h-20"
+            title="从SAP自动获取"
           />
 
           <input
@@ -360,7 +371,9 @@ export const UrgentOrderModal = ({
             ...orderData,
             materialNo: result.data.materialNo,
             materialName: result.data.materialName,
-            quantity: result.data.quantity
+            quantity: result.data.quantity,
+            orderComponent: result.data.orderComponent,
+            componentDescription: result.data.componentDescription
           });
         } else {
           alert('获取物料信息失败: ' + result.error);
@@ -439,7 +452,16 @@ export const UrgentOrderModal = ({
             placeholder="工单组件"
             value={orderData.orderComponent || ''}
             onChange={(e) => onOrderChange({ ...orderData, orderComponent: e.target.value })}
-            className="w-full p-2 border rounded border-red-200"
+            className="w-full p-2 border rounded border-red-200 bg-red-50"
+            title="从SAP自动获取"
+          />
+
+          <textarea
+            placeholder="组件描述"
+            value={orderData.componentDescription || ''}
+            onChange={(e) => onOrderChange({ ...orderData, componentDescription: e.target.value })}
+            className="w-full p-2 border rounded border-red-200 bg-red-50 h-20"
+            title="从SAP自动获取"
           />
 
           <input
@@ -1012,9 +1034,18 @@ export const SubmitWorkOrderModal = ({
   React.useEffect(() => {
     if (order) {
       const machine = machines.find(m => m.name === order.machine);
+      // 从组件描述中提取第一个组件物料号
+      let firstComponentMatnr = '';
+      if (order.componentDescription) {
+        const match = order.componentDescription.match(/^([^:]+)/);
+        if (match) {
+          firstComponentMatnr = match[1].trim();
+        }
+      }
+      
       setFormData({
         orderId: order.orderNo || '',
-        materialId: order.orderComponent || '', // 工单组件自动带入物料编码
+        materialId: firstComponentMatnr || order.orderComponent || '', // 优先使用组件描述中的第一个物料号
         nextmaterialId: order.materialNo || '', // 物料号自动带入产成品编码
         quantity: order.quantity || '',
         equipment: machine?.lineCode || '',

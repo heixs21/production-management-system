@@ -221,7 +221,22 @@ const GanttChart = ({
                               >
                                 {/* 工单编号标签 - 始终显示 */}
                                 <div className="text-xs font-semibold text-gray-700 mb-1 text-center bg-white bg-opacity-50 rounded px-1">
-                                  {orderNo}
+                                  <div>{orderNo}</div>
+                                  {(() => {
+                                    // 提取产成品物料描述的关键部分
+                                    const firstOrder = orderGroup[0];
+                                    if (firstOrder.materialName) {
+                                      const match = firstOrder.materialName.match(/([0-9.]+[一-龥]+)/); // 匹配数字+中文的部分
+                                      if (match) {
+                                        return (
+                                          <div className="text-xs text-gray-600 opacity-75">
+                                            {match[1]}
+                                          </div>
+                                        );
+                                      }
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
 
                                 {/* 该工单的所有卡片 - 水平排列 */}

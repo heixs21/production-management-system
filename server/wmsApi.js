@@ -68,7 +68,7 @@ async function getOrderQuantity(mainCode) {
 
     const params = new URLSearchParams({
       pageNo: '1',
-      pageSize: '1000',
+      pageSize: '100',
       type: '1',
       mainCode: mainCode,
       token: token

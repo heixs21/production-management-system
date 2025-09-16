@@ -189,6 +189,18 @@ async function initDatabase() {
       }
     }
 
+    // 添加组件描述字段
+    try {
+      await connection.execute(`
+        ALTER TABLE orders ADD COLUMN componentDescription TEXT
+      `);
+      console.log('✅ 添加 componentDescription 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ componentDescription 字段可能已存在');
+      }
+    }
+
     connection.release();
     console.log('✅ 数据库表初始化完成');
   } catch (error) {
@@ -277,6 +289,7 @@ app.get('/api/orders', async (req, res) => {
       remainingDays: row.remainingDays || 0,
       originalOrderId: row.originalOrderId,
       orderComponent: row.orderComponent,
+      componentDescription: row.componentDescription,
       isSubmitted: Boolean(row.isSubmitted)
     }));
     res.json(orders);
@@ -301,8 +314,8 @@ app.post('/api/orders', async (req, res) => {
       machine, orderNo, materialNo, materialName, quantity, priority,
       startDate, expectedEndDate, delayedExpectedEndDate, actualEndDate, reportedQuantity,
       dailyReports, status, isUrgent, isPaused, pausedDate, resumedDate, delayReason,
-      producedDays, remainingDays, originalOrderId, orderComponent, isSubmitted
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+      producedDays, remainingDays, originalOrderId, orderComponent, componentDescription, isSubmitted
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 
     const values = [
       order.machine || null,
@@ -327,6 +340,7 @@ app.post('/api/orders', async (req, res) => {
       order.remainingDays || 0,
       order.originalOrderId || null,
       order.orderComponent || null,
+      order.componentDescription || null,
       order.isSubmitted ? 1 : 0
     ];
 
@@ -346,7 +360,7 @@ app.put('/api/orders/:id', async (req, res) => {
       priority = ?, startDate = ?, expectedEndDate = ?, delayedExpectedEndDate = ?, actualEndDate = ?,
       reportedQuantity = ?, dailyReports = ?, status = ?, isUrgent = ?,
       isPaused = ?, pausedDate = ?, resumedDate = ?, delayReason = ?,
-      producedDays = ?, remainingDays = ?, originalOrderId = ?, orderComponent = ?, isSubmitted = ?
+      producedDays = ?, remainingDays = ?, originalOrderId = ?, orderComponent = ?, componentDescription = ?, isSubmitted = ?
       WHERE id = ?`;
 
     const values = [
@@ -372,6 +386,7 @@ app.put('/api/orders/:id', async (req, res) => {
       order.remainingDays || 0,
       order.originalOrderId || null,
       order.orderComponent || null,
+      order.componentDescription || null,
       order.isSubmitted ? 1 : 0,
       req.params.id
     ];
@@ -619,81 +634,96 @@ async function ensureSapAuth() {
   return await getSapAuth();
 }
 
-// SAP系统代理API
+// SAP RFC系统代理API
 app.post('/api/sap/order-material', async (req, res) => {
   try {
     const { orderNo } = req.body;
     
-    // 确保有有效的认证信息
-    const authValid = await ensureSapAuth();
-    if (!authValid) {
-      return res.status(500).json({
+    if (!orderNo) {
+      return res.status(400).json({
         success: false,
-        error: '无法获取SAP认证信息'
+        error: '工单号不能为空'
       });
     }
-    
-    const sapAuthData = getSapAuthData();
-    
-    const data = {
-      "Code": "MM_BARCODE_PROWH_READ",
-      "UserId": "12552",
-      "ReturnCode": 0,
-      "ReturnMessage": "",
-      "np_code2migo": [{
-        "IvInput": `{"AUFNR":"${orderNo}"}`,
-        "EvOutput": ""
-      }]
-    };
 
-    const https = require('https');
-    const agent = new https.Agent({ rejectUnauthorized: false });
-
-    const response = await fetch('https://192.168.202.40:44300/sap/opu/odata/sap/ZODATA01_SRV/codeSet', {
-      method: 'POST',
-      headers: {
-        "accept": "application/json",
-        "accept-language": "zh-CN",
-        "content-type": "application/json",
-        "dataserviceversion": "2.0",
-        "maxdataserviceversion": "2.0",
-        "x-csrf-token": sapAuthData.csrfToken,
-        "Cookie": `sap-usercontext=sap-language=ZH&sap-client=100; ${sapAuthData.sessionCookie}`
+    const { spawn } = require('child_process');
+    const path = require('path');
+    
+    // 调用Python脚本
+    const pythonScript = path.join(__dirname, 'sap_rfc.py');
+    const python = spawn('python', [pythonScript, orderNo], {
+      env: {
+        ...process.env,
+        SAP_RFC_USERNAME: process.env.SAP_RFC_USERNAME,
+        SAP_RFC_PASSWORD: process.env.SAP_RFC_PASSWORD,
+        PYTHONIOENCODING: 'utf-8'
       },
-      body: JSON.stringify(data),
-      agent
+      encoding: 'utf8'
     });
 
-    if (!response.ok) {
-      throw new Error(`SAP请求失败: ${response.status}`);
-    }
+    let output = '';
+    let errorOutput = '';
 
-    const result = await response.json();
-    
-    if (result.d?.np_code2migo?.results?.[0]?.EvOutput) {
-      const outputData = JSON.parse(result.d.np_code2migo.results[0].EvOutput);
-      res.json({
-        success: true,
-        data: {
-          orderNo: outputData.AUFNR,
-          materialNo: outputData.MATNR,
-          materialName: outputData.MAKTX,
-          quantity: outputData.GAMNG,
-          plant: outputData.WERKS,
-          plantName: outputData.WERKSNAME
+    python.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    python.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    python.on('close', (code) => {
+      if (code !== 0) {
+        console.error('Python脚本执行失败:', errorOutput);
+        return res.status(500).json({
+          success: false,
+          error: 'SAP RFC连接失败'
+        });
+      }
+
+      try {
+        const result = JSON.parse(output);
+        
+        if (result.success) {
+          // 构建组件描述字符串
+          let componentDescription = '';
+          if (result.components && result.components.length > 0) {
+            componentDescription = result.components.map(comp => 
+              `${comp.matnr}: ${comp.description} (${comp.required_qty}${comp.unit})`
+            ).join('; ');
+          }
+          
+          res.json({
+            success: true,
+            data: {
+              orderNo: result.order_number,
+              materialNo: result.finished_product.matnr,
+              materialName: result.finished_product.description || '无描述',
+              quantity: result.finished_product.quantity,
+              orderComponent: result.components.map(c => c.matnr).join(','),
+              componentDescription: componentDescription
+            }
+          });
+        } else {
+          res.json({
+            success: false,
+            error: result.error || '未找到工单信息'
+          });
         }
-      });
-    } else {
-      res.json({
-        success: false,
-        error: '未找到工单信息'
-      });
-    }
+      } catch (parseError) {
+        console.error('JSON解析失败:', parseError);
+        res.status(500).json({
+          success: false,
+          error: '数据解析失败'
+        });
+      }
+    });
+
   } catch (error) {
-    console.error('SAP代理请求失败: [错误信息已隐藏]');
+    console.error('SAP RFC请求失败:', error);
     res.status(500).json({
       success: false,
-      error: 'SAP系统连接失败'
+      error: 'SAP RFC系统连接失败'
     });
   }
 });
