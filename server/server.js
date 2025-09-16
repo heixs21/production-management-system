@@ -16,7 +16,11 @@ app.use(cors({
     'http://192.168.1.114:3000',
     'http://192.168.1.114',
     'http://192.168.36.9:3000',
-    'http://192.168.100.30:3000'  // 添加其他可能的IP地址
+    'http://192.168.100.30:3000',
+    // Ubuntu服务器可能的地址
+    /^http:\/\/192\.168\./,
+    /^http:\/\/10\./,
+    /^http:\/\/172\./
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -648,15 +652,36 @@ app.post('/api/sap/order-material', async (req, res) => {
 
     const { spawn } = require('child_process');
     const path = require('path');
+    const fs = require('fs');
     
     // 调用Python脚本
     const pythonScript = path.join(__dirname, 'sap_rfc.py');
-    const python = spawn('python', [pythonScript, orderNo], {
+    
+    // 检查Python脚本是否存在
+    if (!fs.existsSync(pythonScript)) {
+      return res.status(500).json({
+        success: false,
+        error: 'Python脚本不存在: ' + pythonScript
+      });
+    }
+    
+    // 调试信息
+    console.log('SAP RFC 调用参数:', {
+      pythonScript,
+      orderNo,
+      username: process.env.SAP_RFC_USERNAME ? '已设置' : '未设置',
+      password: process.env.SAP_RFC_PASSWORD ? '已设置' : '未设置'
+    });
+    
+    // 尝试使用python3，如果失败则使用python
+    const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
+    const python = spawn(pythonCmd, [pythonScript, orderNo], {
       env: {
         ...process.env,
-        SAP_RFC_USERNAME: process.env.SAP_RFC_USERNAME,
-        SAP_RFC_PASSWORD: process.env.SAP_RFC_PASSWORD,
-        PYTHONIOENCODING: 'utf-8'
+        SAP_RFC_USERNAME: process.env.SAP_RFC_USERNAME || 'H11974',
+        SAP_RFC_PASSWORD: process.env.SAP_RFC_PASSWORD || 'Hota@20251313',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUNBUFFERED: '1'
       },
       encoding: 'utf8'
     });
@@ -673,11 +698,19 @@ app.post('/api/sap/order-material', async (req, res) => {
     });
 
     python.on('close', (code) => {
+      console.log('Python脚本执行结果:', { code, output: output.substring(0, 200), errorOutput });
+      
       if (code !== 0) {
-        console.error('Python脚本执行失败:', errorOutput);
+        console.error('Python脚本执行失败:', {
+          code,
+          stdout: output,
+          stderr: errorOutput,
+          pythonCmd,
+          scriptPath: pythonScript
+        });
         return res.status(500).json({
           success: false,
-          error: 'SAP RFC连接失败'
+          error: 'SAP RFC连接失败: ' + (errorOutput || '未知错误')
         });
       }
 
