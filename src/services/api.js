@@ -1,5 +1,5 @@
 // API服务层 - 连接后端数据库
-const API_BASE_URL = 'http://192.168.36.9:12454/api';
+const API_BASE_URL = `http://${window.location.hostname}:12454/api`;
 
 // 通用请求函数
 const apiRequest = async (url, options = {}) => {

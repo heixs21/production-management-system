@@ -10,7 +10,7 @@ const ProductionBoard = ({ onBackToAdmin }) => {
 
   // 获取数据
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchData = async (isInitialLoad = false) => {
       try {
         const serverUrl = `http://${window.location.hostname}:12454`;
         const [machinesRes, ordersRes] = await Promise.all([
@@ -24,23 +24,26 @@ const ProductionBoard = ({ onBackToAdmin }) => {
         setMachines(machinesData);
         setOrders(ordersData);
         
-        // 默认选择第一个机台
-        if (machinesData.length > 0) {
+        // 只在初次加载时设置默认机台
+        if (isInitialLoad && machinesData.length > 0 && !selectedMachine) {
           setSelectedMachine(machinesData[0].name);
         }
       } catch (error) {
         console.error('获取数据失败:', error);
       } finally {
-        setLoading(false);
+        if (isInitialLoad) {
+          setLoading(false);
+        }
       }
     };
 
-    fetchData();
+    // 初次加载
+    fetchData(true);
     
-    // 每30秒刷新一次数据
-    const interval = setInterval(fetchData, 30000);
+    // 每30秒刷新一次数据，但不重置选中的机台
+    const interval = setInterval(() => fetchData(false), 30000);
     return () => clearInterval(interval);
-  }, []);
+  }, [selectedMachine]);
 
   // 更新当前时间
   useEffect(() => {
