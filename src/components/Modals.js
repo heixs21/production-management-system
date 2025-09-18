@@ -170,7 +170,7 @@ export const OrderModal = ({
 
   // 处理工单号输入完成事件
   const handleOrderNoKeyPress = async (e) => {
-    if (e.key === 'Enter' && orderData.orderNo && !isEditing) {
+    if (e.key === 'Enter' && orderData.orderNo) {
       setLoading(true);
       try {
         const result = await sapApi.getOrderMaterial(orderData.orderNo);
