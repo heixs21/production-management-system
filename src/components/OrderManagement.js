@@ -369,15 +369,10 @@ const OrderManagement = ({
                               </button>
                               <button
                                 onClick={() => onSubmitWorkOrder && onSubmitWorkOrder(order)}
-                                disabled={order.isSubmitted}
-                                className={`p-1 rounded ${
-                                  order.isSubmitted 
-                                    ? 'text-gray-400 bg-gray-100 cursor-not-allowed' 
-                                    : 'text-blue-600 hover:bg-blue-100'
-                                }`}
-                                title={order.isSubmitted ? '已下达' : '下达工单'}
+                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                title={order.isSubmitted ? '重新下达工单' : '下达工单'}
                               >
-                                {order.isSubmitted ? '✓' : '📤'}
+                                {order.isSubmitted ? '🔄' : '📤'}
                               </button>
                             </div>
                           </td>

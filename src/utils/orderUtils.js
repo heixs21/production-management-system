@@ -47,7 +47,17 @@ export const calculateOrderStatus = (order, machines) => {
     return "紧急生产";
   }
 
-  // 当前日期在开始日期当天及之后，状态为生产中
+  // 当前日期在开始日期当天及之后，判断是否延期
+  if (order.expectedEndDate) {
+    const expectedEnd = new Date(order.expectedEndDate);
+    expectedEnd.setHours(0, 0, 0, 0);
+    
+    // 如果当前日期超过了预计结束日期，状态为延期生产中
+    if (today > expectedEnd) {
+      return "延期生产中";
+    }
+  }
+  
   return "生产中";
 };
 

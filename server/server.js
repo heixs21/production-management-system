@@ -788,8 +788,17 @@ app.post('/api/sap/clear-token', (req, res) => {
 // 手动更新WMS报工数量的API
 app.post('/api/wms/update-quantities', async (req, res) => {
   try {
+    // 根据日期条件查找需要更新的工单，而不仅仅依赖状态字段
+    const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
-      "SELECT id, orderNo FROM orders WHERE status IN ('生产中', '延期生产中') AND orderNo IS NOT NULL"
+      `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
+       FROM orders 
+       WHERE orderNo IS NOT NULL 
+         AND actualEndDate IS NULL 
+         AND isPaused = 0 
+         AND startDate <= ? 
+         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
+      [today, today]
     );
     
     let successCount = 0;
@@ -910,8 +919,17 @@ app.post('/api/mes/workOrder', async (req, res) => {
 // 定时更新WMS报工数量
 async function updateWmsQuantities() {
   try {
+    // 根据日期条件查找需要更新的工单
+    const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
-      "SELECT id, orderNo FROM orders WHERE status IN ('生产中', '延期生产中') AND orderNo IS NOT NULL"
+      `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
+       FROM orders 
+       WHERE orderNo IS NOT NULL 
+         AND actualEndDate IS NULL 
+         AND isPaused = 0 
+         AND startDate <= ? 
+         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
+      [today, today]
     );
     
     for (const order of orders) {
