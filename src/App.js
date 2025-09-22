@@ -210,7 +210,7 @@ const App = () => {
   // 更新工单状态
   useEffect(() => {
     const updatedOrders = orders.map(order => {
-      const newStatus = calculateOrderStatus(order, machines);
+      const newStatus = calculateOrderStatus(order, machines, orders);
       return order.status !== newStatus ? { ...order, status: newStatus } : order;
     });
     

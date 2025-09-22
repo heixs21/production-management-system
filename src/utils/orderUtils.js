@@ -1,7 +1,7 @@
 // 工单相关工具函数
 
 // 计算工单状态
-export const calculateOrderStatus = (order, machines) => {
+export const calculateOrderStatus = (order, machines, allOrders = []) => {
   const machine = machines.find(m => m.name === order.machine);
   const today = new Date();
   const startDate = new Date(order.startDate);
@@ -42,9 +42,38 @@ export const calculateOrderStatus = (order, machines) => {
     return "未开始";
   }
 
-  // 紧急工单
+  // 紧急工单优先级最高，不受其他工单影响
   if (order.isUrgent) {
     return "紧急生产";
+  }
+
+  // 检查同机台前面的工单是否有延期生产的情况
+  if (allOrders && allOrders.length > 0) {
+    const sameMachineOrders = allOrders
+      .filter(o => o.machine === order.machine && !o.actualEndDate && !o.isPaused)
+      .sort((a, b) => {
+        // 按开始日期和优先级排序
+        if (a.startDate !== b.startDate) {
+          return new Date(a.startDate) - new Date(b.startDate);
+        }
+        return a.priority - b.priority;
+      });
+
+    const currentOrderIndex = sameMachineOrders.findIndex(o => o.id === order.id);
+    
+    // 检查前面的工单是否有延期生产的
+    for (let i = 0; i < currentOrderIndex; i++) {
+      const prevOrder = sameMachineOrders[i];
+      if (prevOrder.expectedEndDate) {
+        const prevExpectedEnd = new Date(prevOrder.expectedEndDate);
+        prevExpectedEnd.setHours(0, 0, 0, 0);
+        
+        // 如果前面的工单超过了预计结束日期且还在生产中，当前工单应该保持未开始状态
+        if (today > prevExpectedEnd && !prevOrder.actualEndDate) {
+          return "未开始";
+        }
+      }
+    }
   }
 
   // 当前日期在开始日期当天及之后，判断是否延期
