@@ -5,6 +5,7 @@ import Layout from './components/Layout';
 import Login from './components/Login';
 import OrderManagementPage from './pages/OrderManagementPage';
 import MachineManagementPage from './pages/MachineManagementPage';
+import MESWorkOrderPage from './pages/MESWorkOrderPage';
 import ProductionBoard from './components/ProductionBoard';
 import UserManagement from './components/UserManagement';
 
@@ -66,6 +67,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute permission="board">
         <ProductionBoard />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/mes-orders",
+    element: (
+      <ProtectedRoute>
+        <MESWorkOrderPage />
       </ProtectedRoute>
     )
   },

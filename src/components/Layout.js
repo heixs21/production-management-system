@@ -16,6 +16,12 @@ const Layout = ({ children }) => {
       permission: 'orders'
     },
     {
+      name: 'MES工单',
+      path: '/mes-orders',
+      icon: '🔧',
+      permission: 'orders'
+    },
+    {
       name: '机台管理',
       path: '/machines',
       icon: '🏭',

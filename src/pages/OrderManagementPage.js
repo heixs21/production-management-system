@@ -147,6 +147,10 @@ const OrderManagementPage = () => {
           start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           end = new Date(now.getFullYear(), now.getMonth(), 0);
           break;
+        case 'nextMonth':
+          start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+          break;
         case 'thisYear':
           start = new Date(now.getFullYear(), 0, 1);
           end = new Date(now.getFullYear(), 11, 31);

@@ -13,11 +13,36 @@ const GanttChart = ({
   onExportGantt,
   canDrag = true,
   canReport = true,
-  canExport = true
+  canExport = true,
+  selectedGroup = 'all'
 }) => {
   const colors = getPriorityColors();
   const [zoomLevel, setZoomLevel] = useState(100); // 缩放比例，100为默认
   const scrollContainerRef = useRef(null);
+  
+  // 获取机台组信息
+  const machineGroups = React.useMemo(() => {
+    const groups = new Set();
+    machines.forEach(machine => {
+      if (machine.machineGroup) {
+        groups.add(machine.machineGroup);
+      }
+    });
+    return Array.from(groups);
+  }, [machines]);
+  
+  // 甘特图内部的分组状态
+  const [internalSelectedGroup, setInternalSelectedGroup] = React.useState('all');
+  
+  // 根据选中的组过滤机台
+  const filteredMachines = React.useMemo(() => {
+    if (internalSelectedGroup === 'all') {
+      return machines;
+    }
+    
+    // 根据机台组过滤
+    return machines.filter(machine => machine.machineGroup === internalSelectedGroup);
+  }, [machines, internalSelectedGroup]);
   
   // 自动滚动到今天
   useEffect(() => {
@@ -49,6 +74,22 @@ const GanttChart = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">甘特图视图</h2>
         <div className="flex items-center space-x-3">
+          {/* 机台组选择 */}
+          {machineGroups.length > 0 && (
+            <div className="flex items-center space-x-2">
+              <span className="text-sm text-gray-600">机台组:</span>
+              <select
+                value={internalSelectedGroup}
+                onChange={(e) => setInternalSelectedGroup(e.target.value)}
+                className="px-2 py-1 border rounded text-sm"
+              >
+                <option value="all">全部</option>
+                {machineGroups.map(group => (
+                  <option key={group} value={group}>{group}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {/* 缩放控制 */}
           <div className="flex items-center space-x-2">
             <button
@@ -125,7 +166,7 @@ const GanttChart = ({
 
           {/* 机台行 */}
           <div className="divide-y">
-            {machines.map((machine, machineIndex) => (
+            {filteredMachines.map((machine, machineIndex) => (
               <div key={machine.id} className="flex">
                 {/* 机台名称 */}
                 <div className="w-32 p-3 bg-gray-50 border-r font-medium text-gray-700 sticky left-0 z-10 flex items-center" style={{minWidth: '128px', maxWidth: '128px'}}>
