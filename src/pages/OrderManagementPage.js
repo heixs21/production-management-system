@@ -72,6 +72,7 @@ const OrderManagementPage = () => {
   const error = ordersError || machinesError || materialsError;
   const [draggedOrder, setDraggedOrder] = useState(null);
   const [lastDragOperation, setLastDragOperation] = useState(null);
+  const [selectedMachineGroup, setSelectedMachineGroup] = useState('all');
 
   // 弹窗状态
   const [showAddForm, setShowAddForm] = useState(false);
@@ -621,6 +622,8 @@ const OrderManagementPage = () => {
         <OrderManagement
           orders={orders}
           machines={machines}
+          selectedGroup={selectedMachineGroup}
+          onGroupChange={setSelectedMachineGroup}
           onEditOrder={canPerformAction('order.edit') ? handleEditOrder : null}
           onDeleteOrder={canPerformAction('order.delete') ? handleDeleteOrder : null}
           onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
@@ -663,6 +666,7 @@ const OrderManagementPage = () => {
             orders={orders}
             dateRange={dateRange}
             draggedOrder={draggedOrder}
+            selectedGroup={selectedMachineGroup}
             onDragStart={canPerformAction('gantt.drag') ? handleDragStart : null}
             onDragOver={canPerformAction('gantt.drag') ? handleDragOver : null}
             onDrop={canPerformAction('gantt.drag') ? handleDrop : null}

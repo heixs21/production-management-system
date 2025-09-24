@@ -33,18 +33,20 @@ const GanttChart = ({
     return Array.from(groups);
   }, [machines]);
   
-  // 甘特图内部的分组状态
-  const [internalSelectedGroup, setInternalSelectedGroup] = React.useState('all');
-  
-  // 根据选中的组过滤机台
+  // 根据选中的组过滤机台，并隐藏没有工单的机台
   const filteredMachines = React.useMemo(() => {
-    if (internalSelectedGroup === 'all') {
-      return machines;
+    let filtered = machines;
+    
+    // 按机台组过滤
+    if (selectedGroup !== 'all') {
+      filtered = machines.filter(machine => machine.machineGroup === selectedGroup);
     }
     
-    // 根据机台组过滤
-    return machines.filter(machine => machine.machineGroup === internalSelectedGroup);
-  }, [machines, internalSelectedGroup]);
+    // 只显示有工单的机台
+    return filtered.filter(machine => 
+      orders.some(order => order.machine === machine.name && !order.actualEndDate)
+    );
+  }, [machines, selectedGroup, orders]);
   
   // 自动滚动到今天
   useEffect(() => {
@@ -76,22 +78,7 @@ const GanttChart = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">甘特图视图</h2>
         <div className="flex items-center space-x-3">
-          {/* 机台组选择 */}
-          {machineGroups.length > 0 && (
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-gray-600">机台组:</span>
-              <select
-                value={internalSelectedGroup}
-                onChange={(e) => setInternalSelectedGroup(e.target.value)}
-                className="px-2 py-1 border rounded text-sm"
-              >
-                <option value="all">全部</option>
-                {machineGroups.map(group => (
-                  <option key={group} value={group}>{group}</option>
-                ))}
-              </select>
-            </div>
-          )}
+
           {/* 缩放控制 */}
           <div className="flex items-center space-x-2">
             <button

@@ -5,6 +5,8 @@ import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 const OrderManagement = ({
   orders,
   machines = [],
+  selectedGroup,
+  onGroupChange,
   onEditOrder,
   onDeleteOrder,
   onPauseOrder,
@@ -21,7 +23,7 @@ const OrderManagement = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
-  const [selectedGroup, setSelectedGroup] = useState('all');
+  // 使用外部传入的分组状态
   const itemsPerPage = 10;
   
   const statusColors = getStatusColors();
@@ -148,7 +150,7 @@ const OrderManagement = ({
         <div className="mb-4">
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setSelectedGroup('all')}
+              onClick={() => onGroupChange('all')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 selectedGroup === 'all'
                   ? 'bg-blue-600 text-white shadow-md'
@@ -162,7 +164,7 @@ const OrderManagement = ({
               return (
                 <button
                   key={group}
-                  onClick={() => setSelectedGroup(group)}
+                  onClick={() => onGroupChange(group)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     selectedGroup === group
                       ? 'bg-indigo-600 text-white shadow-md'
