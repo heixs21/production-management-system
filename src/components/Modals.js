@@ -59,6 +59,13 @@ export const MachineModal = ({
           />
           <input
             type="text"
+            placeholder="机台组（如：销轴线、装配线、加工线）"
+            value={machineData.machineGroup || ''}
+            onChange={(e) => onMachineChange({ ...machineData, machineGroup: e.target.value })}
+            className="w-full p-2 border rounded"
+          />
+          <input
+            type="text"
             placeholder="产线代号"
             value={machineData.lineCode || ''}
             onChange={(e) => onMachineChange({ ...machineData, lineCode: e.target.value })}

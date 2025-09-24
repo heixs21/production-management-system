@@ -35,6 +35,7 @@ const MachineManager = ({
           <thead>
             <tr className="bg-gray-100">
               <th className="p-2 text-left">机台名称</th>
+              <th className="p-2 text-left">机台组</th>
               <th className="p-2 text-left">产线代号</th>
               <th className="p-2 text-left">状态</th>
               <th className="p-2 text-left">OEE</th>
@@ -50,6 +51,11 @@ const MachineManager = ({
               return (
                 <tr key={machine.id} className="border-b hover:bg-gray-50">
                   <td className="p-2 font-medium">{machine.name}</td>
+                  <td className="p-2">
+                    <span className="px-2 py-1 bg-indigo-100 text-indigo-800 rounded-full text-xs font-medium">
+                      {machine.machineGroup || '未分组'}
+                    </span>
+                  </td>
                   <td className="p-2 text-blue-600 font-medium">{machine.lineCode || '-'}</td>
                   <td className="p-2">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[machine.status]}`}>

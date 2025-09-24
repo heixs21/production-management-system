@@ -81,6 +81,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS machines (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
+        machineGroup VARCHAR(255),
         lineCode VARCHAR(255),
         status VARCHAR(50) DEFAULT '正常',
         oee DECIMAL(3,2) DEFAULT 0.85,
@@ -160,6 +161,18 @@ async function initDatabase() {
     } catch (err) {
       if (err.code !== 'ER_DUP_FIELDNAME') {
         console.log('ℹ️ coefficient 字段可能已存在');
+      }
+    }
+
+    // 添加机台组字段
+    try {
+      await connection.execute(`
+        ALTER TABLE machines ADD COLUMN machineGroup VARCHAR(255)
+      `);
+      console.log('✅ 添加 machineGroup 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ machineGroup 字段可能已存在');
       }
     }
 
@@ -396,14 +409,15 @@ app.get('/api/machines', authenticateToken, async (req, res) => {
 
 app.post('/api/machines', async (req, res) => {
   try {
-    const { name, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, lineCode, status, oee, coefficient) VALUES (?, ?, ?, ?, ?)',
-      [name, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00]
+      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00]
     );
     res.json({
       id: result.insertId,
       name,
+      machineGroup: machineGroup || null,
       lineCode: lineCode || null,
       status: status || '正常',
       oee: oee || 0.85,
@@ -417,10 +431,10 @@ app.post('/api/machines', async (req, res) => {
 
 app.put('/api/machines/:id', async (req, res) => {
   try {
-    const { name, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
     await pool.execute(
-      'UPDATE machines SET name = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ?',
-      [name, lineCode || null, status, oee, coefficient || 1.00, req.params.id]
+      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ?',
+      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, req.params.id]
     );
     res.json({ message: '更新成功' });
   } catch (error) {

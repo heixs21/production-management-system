@@ -1,9 +1,10 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 
 const OrderManagement = ({
   orders,
+  machines = [],
   onEditOrder,
   onDeleteOrder,
   onPauseOrder,
@@ -19,6 +20,8 @@ const OrderManagement = ({
   const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [collapsedMachines, setCollapsedMachines] = useState(new Set());
+  const [selectedGroup, setSelectedGroup] = useState('all');
   const itemsPerPage = 10;
   
   const statusColors = getStatusColors();
@@ -29,6 +32,37 @@ const OrderManagement = ({
     const active = orders.filter(order => !order.actualEndDate);
     return { completedOrders: completed, activeOrders: active };
   }, [orders]);
+
+  // 获取机台组信息
+  const machineGroups = useMemo(() => {
+    const groups = new Map();
+    
+    // 从工单中获取机台名称
+    const machineNames = [...new Set(activeOrders.map(order => order.machine))];
+    
+    // 从 machines 数据中获取真实的机台组信息
+    machineNames.forEach(machineName => {
+      const machine = machines.find(m => m.name === machineName);
+      const group = machine?.machineGroup || '未分组';
+      
+      if (!groups.has(group)) {
+        groups.set(group, []);
+      }
+      groups.get(group).push(machineName);
+    });
+    
+    return groups;
+  }, [activeOrders, machines]);
+
+  // 根据选中的组过滤工单
+  const filteredActiveOrders = useMemo(() => {
+    if (selectedGroup === 'all') {
+      return activeOrders;
+    }
+    
+    const groupMachines = machineGroups.get(selectedGroup) || [];
+    return activeOrders.filter(order => groupMachines.includes(order.machine));
+  }, [activeOrders, selectedGroup, machineGroups]);
 
   // 搜索过滤
   const filteredCompletedOrders = useMemo(() => {
@@ -48,6 +82,16 @@ const OrderManagement = ({
 
   const handlePageChange = (page) => {
     setCurrentPage(Math.max(1, Math.min(page, totalPages)));
+  };
+
+  const toggleMachineCollapse = (machine) => {
+    const newCollapsed = new Set(collapsedMachines);
+    if (newCollapsed.has(machine)) {
+      newCollapsed.delete(machine);
+    } else {
+      newCollapsed.add(machine);
+    }
+    setCollapsedMachines(newCollapsed);
   };
 
   return (
@@ -98,6 +142,40 @@ const OrderManagement = ({
           历史已完成 ({completedOrders.length})
         </button>
       </div>
+
+      {/* 机台组标签 */}
+      {activeTab === 'current' && machineGroups.size > 0 && (
+        <div className="mb-4">
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedGroup('all')}
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                selectedGroup === 'all'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              全部 ({activeOrders.length})
+            </button>
+            {Array.from(machineGroups.entries()).map(([group, machines]) => {
+              const groupOrderCount = activeOrders.filter(order => machines.includes(order.machine)).length;
+              return (
+                <button
+                  key={group}
+                  onClick={() => setSelectedGroup(group)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                    selectedGroup === group
+                      ? 'bg-indigo-600 text-white shadow-md'
+                      : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-200'
+                  }`}
+                >
+                  {group} ({groupOrderCount})
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
       
       {/* 历史已完成工单 */}
       {activeTab === 'completed' && (
@@ -261,7 +339,7 @@ const OrderManagement = ({
         <div>
           {(() => {
             // 按机台分组
-            const ordersByMachine = activeOrders.reduce((groups, order) => {
+            const ordersByMachine = filteredActiveOrders.reduce((groups, order) => {
               if (!groups[order.machine]) {
                 groups[order.machine] = [];
               }
@@ -269,12 +347,40 @@ const OrderManagement = ({
               return groups;
             }, {});
 
-            return Object.entries(ordersByMachine).map(([machine, orders]) => (
-              <div key={machine} className="mb-6">
-                <h4 className="text-md font-semibold text-gray-700 mb-3 bg-gray-100 p-2 rounded">
-                  {machine} ({orders.length}个工单)
-                </h4>
-                <div className="overflow-x-auto">
+            return Object.entries(ordersByMachine).map(([machine, orders]) => {
+              const isCollapsed = collapsedMachines.has(machine);
+              return (
+                <div key={machine} className="mb-4 border rounded-lg">
+                  <div 
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-indigo-50 cursor-pointer hover:from-blue-100 hover:to-indigo-100 rounded-t-lg border-l-4 border-blue-500 transition-all"
+                    onClick={() => toggleMachineCollapse(machine)}
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <h4 className="text-lg font-semibold text-gray-800">
+                        {machine}
+                      </h4>
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                        {orders.length}个工单
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-gray-600 font-medium">
+                        {isCollapsed ? '展开' : '折叠'}
+                      </span>
+                      <div className={`p-1 rounded-full transition-transform ${
+                        isCollapsed ? 'bg-blue-100' : 'bg-blue-200'
+                      }`}>
+                        {isCollapsed ? (
+                          <ChevronDown className="w-5 h-5 text-blue-600" />
+                        ) : (
+                          <ChevronUp className="w-5 h-5 text-blue-600" />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                {!isCollapsed && (
+                  <div className="overflow-x-auto border-t bg-white shadow-sm">
                   <table className="w-full text-sm table-fixed">
                     <colgroup>
                       <col className="w-24" />
@@ -425,9 +531,11 @@ const OrderManagement = ({
                       ))}
                     </tbody>
                   </table>
+                  </div>
+                )}
                 </div>
-              </div>
-            ));
+              );
+            });
           })()}
         </div>
       )}

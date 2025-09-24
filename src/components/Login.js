@@ -73,9 +73,7 @@ const Login = () => {
             </button>
           </div>
 
-          <div className="text-xs text-gray-500 text-center">
-            默认管理员账户: admin / admin123
-          </div>
+
         </form>
       </div>
     </div>
