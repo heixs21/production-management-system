@@ -289,15 +289,6 @@ async function initDatabase() {
 // 启动时初始化数据库
 initDatabase();
 
-// 启动服务器
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 服务器运行在 http://0.0.0.0:${PORT}`);
-  console.log(`🌐 可通过以下地址访问:`);
-  console.log(`   - http://localhost:${PORT}`);
-  console.log(`   - http://127.0.0.1:${PORT}`);
-  console.log(`   - http://192.168.1.114:${PORT}`);
-});
-
 // 用户认证API
 app.post('/api/auth/login', async (req, res) => {
   try {
@@ -1212,9 +1203,13 @@ async function updateWmsQuantities() {
 }
 
 // 启动服务器
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GUNT后端服务启动成功！`);
-  console.log(`📡 服务地址: http://localhost:${PORT}`);
+  console.log(`📡 服务地址: http://0.0.0.0:${PORT}`);
+  console.log(`🔗 可通过以下地址访问:`);
+  console.log(`   - http://localhost:${PORT}`);
+  console.log(`   - http://127.0.0.1:${PORT}`);
+  console.log(`   - http://192.168.1.114:${PORT}`);
   console.log(`💾 数据库: MySQL (${dbConfig.host}:${dbConfig.database})`);
   
   // 启动定时任务，每5分钟更新一次WMS数量
