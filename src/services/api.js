@@ -1,5 +1,18 @@
 // API服务层 - 连接后端数据库
-const API_BASE_URL = `http://${window.location.hostname}:12454/api`;
+// 根据环境自动选择API地址
+const getApiBaseUrl = () => {
+  // 如果是开发环境或本地访问
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:12454/api';
+  }
+  
+  // 生产环境，使用当前主机名
+  return `http://${window.location.hostname}:12454/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('API Base URL:', API_BASE_URL); // 调试信息
 
 // 通用请求函数
 const apiRequest = async (url, options = {}) => {
