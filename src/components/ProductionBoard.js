@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
+import { getStatusColors, formatDateOnly, calculateOrderStatus } from '../utils/orderUtils';
 
-const ProductionBoard = ({ onBackToAdmin }) => {
+const ProductionBoard = () => {
+  const navigate = useNavigate();
+  const { token } = useAuth();
   const [machines, setMachines] = useState([]);
   const [orders, setOrders] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState('');
@@ -13,16 +17,27 @@ const ProductionBoard = ({ onBackToAdmin }) => {
     const fetchData = async (isInitialLoad = false) => {
       try {
         const serverUrl = `http://${window.location.hostname}:12454`;
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+        
         const [machinesRes, ordersRes] = await Promise.all([
-          fetch(`${serverUrl}/api/machines`),
-          fetch(`${serverUrl}/api/orders`)
+          fetch(`${serverUrl}/api/machines`, { headers }),
+          fetch(`${serverUrl}/api/orders`, { headers })
         ]);
         
         const machinesData = await machinesRes.json();
         const ordersData = await ordersRes.json();
         
+        // 更新工单状态
+        const updatedOrders = ordersData.map(order => ({
+          ...order,
+          status: calculateOrderStatus(order, machinesData, ordersData)
+        }));
+        
         setMachines(machinesData);
-        setOrders(ordersData);
+        setOrders(updatedOrders);
         
         // 只在初次加载时设置默认机台
         if (isInitialLoad && machinesData.length > 0 && !selectedMachine) {
@@ -70,12 +85,11 @@ const ProductionBoard = ({ onBackToAdmin }) => {
 
   // 获取当前正在生产的工单
   const currentOrder = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return machineOrders.find(order => {
-      const startDate = order.startDate;
-      const endDate = order.actualEndDate || order.delayedExpectedEndDate || order.expectedEndDate;
-      return startDate <= today && (!endDate || endDate >= today) && !order.isPaused;
-    });
+    // 查找状态为"生产中"或"延期生产中"或"紧急生产"的工单
+    return machineOrders.find(order => 
+      (order.status === '生产中' || order.status === '延期生产中' || order.status === '紧急生产') && 
+      !order.isPaused
+    );
   }, [machineOrders]);
 
   const statusColors = getStatusColors();
@@ -94,15 +108,13 @@ const ProductionBoard = ({ onBackToAdmin }) => {
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            {onBackToAdmin && (
-              <button
-                onClick={onBackToAdmin}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center space-x-2"
-              >
-                <span>←</span>
-                <span>返回管理</span>
-              </button>
-            )}
+            <button
+              onClick={() => navigate('/orders')}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center space-x-2"
+            >
+              <span>←</span>
+              <span>返回管理</span>
+            </button>
             <div>
               <h1 className="text-3xl font-bold text-gray-800">🏭 生产看板</h1>
               <p className="text-gray-600 mt-2">实时工单排产信息</p>

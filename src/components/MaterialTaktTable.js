@@ -6,7 +6,8 @@ const MaterialTaktTable = ({
   onAddMaterial, 
   onEditMaterial, 
   onDeleteMaterial,
-  onImportMaterials 
+  onImportMaterials,
+  permissions = {}
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPasteDialog, setShowPasteDialog] = useState(false);
@@ -39,26 +40,30 @@ const MaterialTaktTable = ({
           <div className="flex items-center space-x-2">
             {isExpanded && (
               <>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddMaterial();
-                  }}
-                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
-                >
-                  <Plus className="w-4 h-4 mr-1" />
-                  添加物料
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowPasteDialog(true);
-                  }}
-                  className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
-                >
-                  <Upload className="w-4 h-4 mr-1" />
-                  导入数据
-                </button>
+                {permissions.canAdd && onAddMaterial && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddMaterial();
+                    }}
+                    className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    添加物料
+                  </button>
+                )}
+                {permissions.canImport && onImportMaterials && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowPasteDialog(true);
+                    }}
+                    className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+                  >
+                    <Upload className="w-4 h-4 mr-1" />
+                    导入数据
+                  </button>
+                )}
               </>
             )}
             {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
@@ -95,20 +100,24 @@ const MaterialTaktTable = ({
                     </td>
                     <td className="p-2">
                       <div className="flex space-x-1">
-                        <button
-                          onClick={() => onEditMaterial(material)}
-                          className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                          title="编辑"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => onDeleteMaterial(material.id)}
-                          className="p-1 text-red-600 hover:bg-red-100 rounded"
-                          title="删除"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
+                        {permissions.canEdit && onEditMaterial && (
+                          <button
+                            onClick={() => onEditMaterial(material)}
+                            className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                            title="编辑"
+                          >
+                            <Edit3 className="w-4 h-4" />
+                          </button>
+                        )}
+                        {permissions.canDelete && onDeleteMaterial && (
+                          <button
+                            onClick={() => onDeleteMaterial(material.id)}
+                            className="p-1 text-red-600 hover:bg-red-100 rounded"
+                            title="删除"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

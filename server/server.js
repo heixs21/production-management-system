@@ -40,6 +40,37 @@ const pool = mysql.createPool(dbConfig);
 
 
 
+// JWT认证相关
+const tokenSecurity = require('./tokenSecurity');
+const jwt = require('jsonwebtoken');
+const JWT_SECRET = process.env.JWT_SECRET || 'gunt_secret_key_2024';
+
+// 中间件：验证JWT Token
+function authenticateToken(req, res, next) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) {
+    return res.status(401).json({ error: '缺少访问令牌' });
+  }
+
+  jwt.verify(token, JWT_SECRET, (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: '令牌无效' });
+    }
+    req.user = user;
+    next();
+  });
+}
+
+// 中间件：检查管理员权限
+function requireAdmin(req, res, next) {
+  if (req.user.role !== 'admin') {
+    return res.status(403).json({ error: '需要管理员权限' });
+  }
+  next();
+}
+
 // 初始化数据库表
 async function initDatabase() {
   try {
@@ -50,6 +81,7 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS machines (
         id INT AUTO_INCREMENT PRIMARY KEY,
         name VARCHAR(255) UNIQUE NOT NULL,
+        machineGroup VARCHAR(255),
         lineCode VARCHAR(255),
         status VARCHAR(50) DEFAULT '正常',
         oee DECIMAL(3,2) DEFAULT 0.85,
@@ -132,6 +164,18 @@ async function initDatabase() {
       }
     }
 
+    // 添加机台组字段
+    try {
+      await connection.execute(`
+        ALTER TABLE machines ADD COLUMN machineGroup VARCHAR(255)
+      `);
+      console.log('✅ 添加 machineGroup 字段成功');
+    } catch (err) {
+      if (err.code !== 'ER_DUP_FIELDNAME') {
+        console.log('ℹ️ machineGroup 字段可能已存在');
+      }
+    }
+
     try {
       await connection.execute(`
         ALTER TABLE orders ADD COLUMN producedDays INT DEFAULT 0
@@ -201,6 +245,53 @@ async function initDatabase() {
       }
     }
 
+    // 创建用户表
+    await connection.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(50) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        role VARCHAR(20) DEFAULT 'user',
+        permissions JSON,
+        allowedMachines JSON,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    `);
+
+    // 创建默认管理员账户
+    try {
+      const [existingAdmin] = await connection.execute('SELECT id FROM users WHERE username = ?', ['admin']);
+      if (existingAdmin.length === 0) {
+        await connection.execute(
+          'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
+          ['admin', 'admin123', 'admin', JSON.stringify(['all']), JSON.stringify(['all'])]
+        );
+        console.log('✅ 创建默认管理员账户: admin/admin123');
+      }
+      
+      // 创建默认普通用户账户（只读权限）
+      const [existingUser] = await connection.execute('SELECT id FROM users WHERE username = ?', ['user']);
+      if (existingUser.length === 0) {
+        await connection.execute(
+          'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
+          ['user', 'user123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board']), JSON.stringify(['all'])]
+        );
+        console.log('✅ 创建默认用户账户: user/user123 (只读权限)');
+      }
+      
+      // 创建默认操作员账户（写入权限）
+      const [existingOperator] = await connection.execute('SELECT id FROM users WHERE username = ?', ['operator']);
+      if (existingOperator.length === 0) {
+        await connection.execute(
+          'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
+          ['operator', 'op123', 'user', JSON.stringify(['orders.write', 'machines.read', 'board']), JSON.stringify(['all'])]
+        );
+        console.log('✅ 创建默认操作员账户: operator/op123 (工单管理权限)');
+      }
+    } catch (err) {
+      console.log('ℹ️ 管理员账户可能已存在');
+    }
+
     connection.release();
     console.log('✅ 数据库表初始化完成');
   } catch (error) {
@@ -211,11 +302,105 @@ async function initDatabase() {
 // 启动时初始化数据库
 initDatabase();
 
+// 用户认证API
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    
+    const [users] = await pool.execute(
+      'SELECT id, username, role, permissions, allowedMachines FROM users WHERE username = ? AND password = ?',
+      [username, password]
+    );
+    
+    if (users.length === 0) {
+      return res.status(401).json({ error: '用户名或密码错误' });
+    }
+    
+    const user = users[0];
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username, 
+        role: user.role,
+        permissions: user.permissions,
+        allowedMachines: user.allowedMachines
+      },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+    
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        permissions: user.permissions,
+        allowedMachines: user.allowedMachines
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 用户管理API
+app.get('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await pool.execute('SELECT id, username, role, permissions, allowedMachines, created_at FROM users ORDER BY id');
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/users', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username, password, role, permissions, allowedMachines } = req.body;
+    const [result] = await pool.execute(
+      'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
+      [username, password, role || 'user', JSON.stringify(permissions || []), JSON.stringify(allowedMachines || [])]
+    );
+    res.json({ id: result.insertId, username, role: role || 'user' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const { username, password, role, permissions, allowedMachines } = req.body;
+    await pool.execute(
+      'UPDATE users SET username = ?, password = ?, role = ?, permissions = ?, allowedMachines = ? WHERE id = ?',
+      [username, password, role, JSON.stringify(permissions), JSON.stringify(allowedMachines), req.params.id]
+    );
+    res.json({ message: '更新成功' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    await pool.execute('DELETE FROM users WHERE id = ?', [req.params.id]);
+    res.json({ message: '删除成功' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 机台API
-app.get('/api/machines', async (req, res) => {
+app.get('/api/machines', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM machines ORDER BY id');
-    res.json(rows);
+    
+    // 根据用户权限过滤机台
+    let filteredMachines = rows;
+    if (req.user.role !== 'admin' && req.user.allowedMachines && !req.user.allowedMachines.includes('all')) {
+      filteredMachines = rows.filter(machine => req.user.allowedMachines.includes(machine.name));
+    }
+    
+    res.json(filteredMachines);
   } catch (error) {
     console.error('获取机台数据失败:', error);
     res.status(500).json({ error: error.message });
@@ -224,14 +409,15 @@ app.get('/api/machines', async (req, res) => {
 
 app.post('/api/machines', async (req, res) => {
   try {
-    const { name, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, lineCode, status, oee, coefficient) VALUES (?, ?, ?, ?, ?)',
-      [name, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00]
+      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient) VALUES (?, ?, ?, ?, ?, ?)',
+      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00]
     );
     res.json({
       id: result.insertId,
       name,
+      machineGroup: machineGroup || null,
       lineCode: lineCode || null,
       status: status || '正常',
       oee: oee || 0.85,
@@ -245,10 +431,10 @@ app.post('/api/machines', async (req, res) => {
 
 app.put('/api/machines/:id', async (req, res) => {
   try {
-    const { name, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
     await pool.execute(
-      'UPDATE machines SET name = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ?',
-      [name, lineCode || null, status, oee, coefficient || 1.00, req.params.id]
+      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ?',
+      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, req.params.id]
     );
     res.json({ message: '更新成功' });
   } catch (error) {
@@ -268,23 +454,22 @@ app.delete('/api/machines/:id', async (req, res) => {
 });
 
 // 工单API
-app.get('/api/orders', async (req, res) => {
+app.get('/api/orders', authenticateToken, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM orders ORDER BY machine ASC, startDate ASC, priority ASC');
+    
     // 转换数据格式
-    const orders = rows.map(row => ({
+    let orders = rows.map(row => ({
       ...row,
       isUrgent: Boolean(row.isUrgent),
       isPaused: Boolean(row.isPaused),
       dailyReports: row.dailyReports || {},
-      // 日期已经是字符串格式，直接使用
       startDate: row.startDate,
       expectedEndDate: row.expectedEndDate,
       delayedExpectedEndDate: row.delayedExpectedEndDate,
       actualEndDate: row.actualEndDate,
       pausedDate: row.pausedDate,
       resumedDate: row.resumedDate,
-      // 新增字段
       producedDays: row.producedDays || 0,
       remainingDays: row.remainingDays || 0,
       originalOrderId: row.originalOrderId,
@@ -292,6 +477,12 @@ app.get('/api/orders', async (req, res) => {
       componentDescription: row.componentDescription,
       isSubmitted: Boolean(row.isSubmitted)
     }));
+    
+    // 根据用户权限过滤工单
+    if (req.user.role !== 'admin' && req.user.allowedMachines && !req.user.allowedMachines.includes('all')) {
+      orders = orders.filter(order => req.user.allowedMachines.includes(order.machine));
+    }
+    
     res.json(orders);
   } catch (error) {
     console.error('获取工单数据失败:', error);
@@ -458,7 +649,7 @@ app.delete('/api/materials/:id', async (req, res) => {
   }
 });
 
-const tokenSecurity = require('./tokenSecurity');
+
 
 // 服务标识
 const MES_SERVICE = 'mes_system';
@@ -634,6 +825,84 @@ async function ensureSapAuth() {
   return await getSapAuth();
 }
 
+// SAP工序报工单API
+app.post('/api/sap/work-order-report', async (req, res) => {
+  try {
+    const { orderNo } = req.body;
+    
+    if (!orderNo) {
+      return res.status(400).json({
+        success: false,
+        error: '工单号不能为空'
+      });
+    }
+
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // 调用Python脚本
+    const pythonScript = path.join(__dirname, 'sap_rfc_extended.py');
+    
+    // 检查Python脚本是否存在
+    if (!fs.existsSync(pythonScript)) {
+      return res.status(500).json({
+        success: false,
+        error: 'Python脚本不存在: ' + pythonScript
+      });
+    }
+    
+    // 优先使用环境变量指定的Python路径，否则使用默认命令
+    const pythonCmd = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
+    const python = spawn(pythonCmd, [pythonScript, orderNo], {
+      env: {
+        ...process.env,
+        SAP_RFC_USERNAME: process.env.SAP_RFC_USERNAME || 'H11974',
+        SAP_RFC_PASSWORD: process.env.SAP_RFC_PASSWORD || 'Hota@20251313',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUNBUFFERED: '1'
+      },
+      encoding: 'utf8'
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    python.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    python.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    python.on('close', (code) => {
+      if (code !== 0) {
+        return res.status(500).json({
+          success: false,
+          error: 'SAP RFC连接失败: ' + (errorOutput || '未知错误')
+        });
+      }
+
+      try {
+        const result = JSON.parse(output);
+        res.json(result);
+      } catch (parseError) {
+        res.status(500).json({
+          success: false,
+          error: '数据解析失败'
+        });
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'SAP RFC系统连接失败'
+    });
+  }
+});
+
 // SAP RFC系统代理API
 app.post('/api/sap/order-material', async (req, res) => {
   try {
@@ -788,7 +1057,7 @@ app.post('/api/sap/clear-token', (req, res) => {
 // 手动更新WMS报工数量的API
 app.post('/api/wms/update-quantities', async (req, res) => {
   try {
-    // 根据日期条件查找需要更新的工单，而不仅仅依赖状态字段
+    // 查找已开始但未完成且未暂停的工单
     const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
       `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
@@ -796,9 +1065,8 @@ app.post('/api/wms/update-quantities', async (req, res) => {
        WHERE orderNo IS NOT NULL 
          AND actualEndDate IS NULL 
          AND isPaused = 0 
-         AND startDate <= ? 
-         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
-      [today, today]
+         AND startDate <= ?`,
+      [today]
     );
     
     let successCount = 0;
@@ -919,7 +1187,7 @@ app.post('/api/mes/workOrder', async (req, res) => {
 // 定时更新WMS报工数量
 async function updateWmsQuantities() {
   try {
-    // 根据日期条件查找需要更新的工单
+    // 查找已开始但未完成且未暂停的工单
     const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
       `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
@@ -927,9 +1195,8 @@ async function updateWmsQuantities() {
        WHERE orderNo IS NOT NULL 
          AND actualEndDate IS NULL 
          AND isPaused = 0 
-         AND startDate <= ? 
-         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
-      [today, today]
+         AND startDate <= ?`,
+      [today]
     );
     
     for (const order of orders) {
@@ -950,9 +1217,13 @@ async function updateWmsQuantities() {
 }
 
 // 启动服务器
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 GUNT后端服务启动成功！`);
-  console.log(`📡 服务地址: http://localhost:${PORT}`);
+  console.log(`📡 服务地址: http://0.0.0.0:${PORT}`);
+  console.log(`🔗 可通过以下地址访问:`);
+  console.log(`   - http://localhost:${PORT}`);
+  console.log(`   - http://127.0.0.1:${PORT}`);
+  console.log(`   - http://192.168.1.114:${PORT}`);
   console.log(`💾 数据库: MySQL (${dbConfig.host}:${dbConfig.database})`);
   
   // 启动定时任务，每5分钟更新一次WMS数量

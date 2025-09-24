@@ -1,12 +1,27 @@
 // API服务层 - 连接后端数据库
-const API_BASE_URL = `http://${window.location.hostname}:12454/api`;
+// 根据环境自动选择API地址
+const getApiBaseUrl = () => {
+  // 如果是开发环境或本地访问
+  if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+    return 'http://localhost:12454/api';
+  }
+  
+  // 生产环境，使用当前主机名
+  return `http://${window.location.hostname}:12454/api`;
+};
+
+const API_BASE_URL = getApiBaseUrl();
+
+console.log('API Base URL:', API_BASE_URL); // 调试信息
 
 // 通用请求函数
 const apiRequest = async (url, options = {}) => {
   try {
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${url}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
@@ -99,4 +114,42 @@ export const workOrderApi = {
     method: 'POST',
     body: JSON.stringify(workOrderData),
   })
+};
+
+// 认证API
+export const authApi = {
+  // 用户登录
+  login: (credentials) => apiRequest('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  }),
+  
+  // 验证token
+  verify: () => apiRequest('/auth/verify'),
+  
+  // 获取用户信息
+  getProfile: () => apiRequest('/auth/profile'),
+};
+
+// 用户管理API
+export const userApi = {
+  // 获取所有用户
+  getAll: () => apiRequest('/users'),
+  
+  // 创建用户
+  create: (user) => apiRequest('/users', {
+    method: 'POST',
+    body: JSON.stringify(user),
+  }),
+  
+  // 更新用户
+  update: (id, user) => apiRequest(`/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(user),
+  }),
+  
+  // 删除用户
+  delete: (id) => apiRequest(`/users/${id}`, {
+    method: 'DELETE',
+  }),
 };
