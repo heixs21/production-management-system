@@ -593,6 +593,7 @@ const OrderManagementPage = () => {
         {/* 工单管理 */}
         <OrderManagement
           orders={orders}
+          machines={machines}
           onEditOrder={canPerformAction('order.edit') ? handleEditOrder : null}
           onDeleteOrder={canPerformAction('order.delete') ? handleDeleteOrder : null}
           onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
