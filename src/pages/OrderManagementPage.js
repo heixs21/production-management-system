@@ -1,23 +1,14 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { useAuth } from "./contexts/AuthContext";
-import Login from "./components/Login";
-import Layout from "./components/Layout";
-import "./index.css";
-
-// 导入组件
-import Header from "./components/Header";
-import MachineManager from "./components/MachineManager";
-import OrderTable from "./components/OrderTable";
-import OrderManagement from "./components/OrderManagement";
-import MaterialTaktTable from "./components/MaterialTaktTable";
-import CurrentOrdersAnalysis from "./components/CurrentOrdersAnalysis";
-import DateRangeSelector from "./components/DateRangeSelector";
-import GanttChart from "./components/GanttChart";
-import ProductionBoard from "./components/ProductionBoard";
+import { useAuth } from "../contexts/AuthContext";
+import Header from "../components/Header";
+import OrderManagement from "../components/OrderManagement";
+import CurrentOrdersAnalysis from "../components/CurrentOrdersAnalysis";
+import DateRangeSelector from "../components/DateRangeSelector";
+import GanttChart from "../components/GanttChart";
+import MaterialTaktTable from "../components/MaterialTaktTable";
 import {
   ErrorMessage,
   LoadingSpinner,
-  MachineModal,
   PasteModal,
   OrderModal,
   UrgentOrderModal,
@@ -27,28 +18,20 @@ import {
   FinishOrderModal,
   DelayOrderModal,
   SubmitWorkOrderModal
-} from "./components/Modals";
+} from "../components/Modals";
 
 // 导入数据管理hooks
-import { useOrderData } from "./hooks/useOrderData";
-import { useMachineData } from "./hooks/useMachineData";
-import { useMaterialData } from "./hooks/useMaterialData";
-import { workOrderApi } from "./services/api";
+import { useOrderData } from "../hooks/useOrderData";
+import { useMachineData } from "../hooks/useMachineData";
+import { useMaterialData } from "../hooks/useMaterialData";
+import { workOrderApi } from "../services/api";
 
 // 导入工具函数
-import {
-  calculateOrderStatus
-} from "./utils/orderUtils";
-import {
-  exportOrdersToExcel,
-  exportGanttChart
-} from "./utils/exportUtils";
+import { calculateOrderStatus } from "../utils/orderUtils";
+import { exportOrdersToExcel, exportGanttChart } from "../utils/exportUtils";
 
-const App = () => {
-  const { isAuthenticated, loading: authLoading } = useAuth();
-  
-  // 页面状态管理
-  const [currentPage, setCurrentPage] = useState('admin'); // 'admin' 或 'board'
+const OrderManagementPage = () => {
+  const { user, canPerformAction } = useAuth();
   
   // 使用自定义hooks管理数据
   const {
@@ -70,14 +53,9 @@ const App = () => {
   const {
     machines,
     loading: machinesLoading,
-    error: machinesError,
-    addMachine,
-    updateMachine,
-    deleteMachine,
-    getMachineStatus
+    error: machinesError
   } = useMachineData();
 
-  // 物料数据管理
   const {
     materials,
     loading: materialsLoading,
@@ -95,13 +73,11 @@ const App = () => {
   const [draggedOrder, setDraggedOrder] = useState(null);
 
   // 弹窗状态
-  const [showMachineForm, setShowMachineForm] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showUrgentForm, setShowUrgentForm] = useState(false);
   const [showPasteDialog, setShowPasteDialog] = useState(false);
   const [showPauseResumeModal, setShowPauseResumeModal] = useState(false);
   const [showReportWorkModal, setShowReportWorkModal] = useState(false);
-  const [editingMachine, setEditingMachine] = useState(null);
   const [showFinishOrderModal, setShowFinishOrderModal] = useState(false);
   const [finishingOrder, setFinishingOrder] = useState(null);
   const [showDelayOrderModal, setShowDelayOrderModal] = useState(false);
@@ -121,7 +97,6 @@ const App = () => {
   const [editingMaterial, setEditingMaterial] = useState(null);
 
   // 表单数据
-  const [newMachine, setNewMachine] = useState({ name: "", status: "正常", coefficient: 1.00 });
   const [newOrder, setNewOrder] = useState({
     machine: "",
     orderNo: "",
@@ -189,22 +164,12 @@ const App = () => {
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       }
 
-      // 生成日期数组
       const dates = [];
       const current = new Date(start);
       while (current <= end) {
         dates.push(current.toISOString().split('T')[0]);
         current.setDate(current.getDate() + 1);
       }
-      
-      // 调试信息
-      console.log('日期范围调试:', {
-        selectedTimeRange,
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0],
-        dates: dates.slice(0, 5) + '...' + dates.slice(-2),
-        totalDays: dates.length
-      });
       
       return dates;
     };
@@ -227,45 +192,6 @@ const App = () => {
       setOrders(updatedOrders);
     }
   }, [machines, orders, setOrders]);
-
-  // 机台管理处理函数
-  const handleAddMachine = useCallback(async () => {
-    try {
-      await addMachine(newMachine);
-      setNewMachine({ name: "", status: "正常", coefficient: 1.00 });
-      setShowMachineForm(false);
-    } catch (err) {
-      alert(`添加机台失败: ${err.message}`);
-    }
-  }, [newMachine, addMachine]);
-
-  const handleEditMachine = useCallback((machine) => {
-    setEditingMachine({ ...machine });
-  }, []);
-
-  const handleSaveMachine = useCallback(async () => {
-    try {
-      await updateMachine(editingMachine);
-      setEditingMachine(null);
-    } catch (err) {
-      alert(`更新机台失败: ${err.message}`);
-    }
-  }, [editingMachine, updateMachine]);
-
-  const handleDeleteMachine = useCallback((machineId) => {
-    const machine = machines.find(m => m.id === machineId);
-    const hasOrders = orders.some(o => o.machine === machine.name);
-    
-    if (hasOrders) {
-      if (!window.confirm(`机台 ${machine.name} 还有工单，确定要删除吗？删除后相关工单也会被删除。`)) {
-        return;
-      }
-      // 删除相关工单
-      setOrders(orders.filter(o => o.machine !== machine.name));
-    }
-    
-    deleteMachine(machineId);
-  }, [machines, orders, deleteMachine, setOrders]);
 
   // 工单管理处理函数
   const handleAddOrder = useCallback(async () => {
@@ -292,10 +218,9 @@ const App = () => {
   }, [newOrder, addOrder]);
 
   const handleEditOrder = useCallback((order) => {
-    // 确保日期格式正确（只保留日期部分，去掉时间）
     const formatDate = (date) => {
       if (!date) return '';
-      return date.split('T')[0]; // 去掉时间部分
+      return date.split('T')[0];
     };
 
     setEditingOrder({
@@ -407,6 +332,26 @@ const App = () => {
     setShowSubmitWorkOrderModal(true);
   }, []);
 
+  const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
+    try {
+      setSubmitLoading(true);
+      await workOrderApi.submit(workOrderData);
+      
+      await updateOrder({
+        ...submittingOrder,
+        isSubmitted: true
+      });
+      
+      setShowSubmitWorkOrderModal(false);
+      setSubmittingOrder(null);
+      alert('工单下达成功！');
+    } catch (error) {
+      alert('下达工单失败: ' + error.message);
+    } finally {
+      setSubmitLoading(false);
+    }
+  }, [submittingOrder, updateOrder]);
+
   // 生成工序报工单处理函数
   const handleGenerateWorkOrderReport = useCallback(async (order) => {
     try {
@@ -421,7 +366,6 @@ const App = () => {
 
       const result = await response.json();
       if (result.success) {
-        // 创建新窗口显示图片
         const newWindow = window.open('', '_blank');
         newWindow.document.write(`
           <html>
@@ -456,29 +400,6 @@ const App = () => {
       alert('生成工序报工单失败: ' + error.message);
     }
   }, []);
-
-  const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
-    try {
-      setSubmitLoading(true);
-      await workOrderApi.submit(workOrderData);
-      
-      // 更新工单状态为已下达
-      await updateOrder({
-        ...submittingOrder,
-        isSubmitted: true
-      });
-      
-      setShowSubmitWorkOrderModal(false);
-      setSubmittingOrder(null);
-      alert('工单下达成功！');
-    } catch (error) {
-      alert('下达工单失败: ' + error.message);
-    } finally {
-      setSubmitLoading(false);
-    }
-  }, [submittingOrder, updateOrder]);
-
-
 
   // 物料处理函数
   const handleAddMaterial = useCallback(async () => {
@@ -576,7 +497,6 @@ const App = () => {
       const result = await response.json();
       if (result.success) {
         alert(result.message);
-        // 重新加载工单数据以显示更新后的数量
         await loadOrders();
       } else {
         alert('WMS数量更新失败: ' + result.error);
@@ -653,28 +573,8 @@ const App = () => {
     setDraggedOrder(null);
   }, [draggedOrder, dateRange, updateOrder]);
 
-  // 认证加载中
-  if (authLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-lg">加载中...</div>
-      </div>
-    );
-  }
-  
-  // 未认证显示登录页面
-  if (!isAuthenticated) {
-    return <Login />;
-  }
-  
-  // 如果当前页面是生产看板，显示生产看板组件
-  if (currentPage === 'board') {
-    return <ProductionBoard onBackToAdmin={() => setCurrentPage('admin')} />;
-  }
-
   return (
-    <Layout>
-      <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 min-h-screen">
       {/* 错误提示和加载状态 */}
       {error && <ErrorMessage message={error} onClose={() => {}} />}
       <LoadingSpinner loading={loading} />
@@ -682,50 +582,39 @@ const App = () => {
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* 头部 */}
         <Header
-          onShowMachineForm={() => setShowMachineForm(true)}
-          onShowPasteDialog={() => setShowPasteDialog(true)}
-          onShowAddForm={() => setShowAddForm(true)}
-          onShowUrgentForm={() => setShowUrgentForm(true)}
-        />
-        
-        {/* 生产看板链接 */}
-        <div className="p-4 border-b bg-blue-50">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold text-blue-800">🏭 生产看板</h3>
-              <p className="text-blue-600 text-sm">现场人员专用 - 查看机台工单排产</p>
-            </div>
-            <button
-              onClick={() => setCurrentPage('board')}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center space-x-2"
-            >
-              <span>📺</span>
-              <span>打开生产看板</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 机台管理 */}
-        <MachineManager 
-          machines={machines}
-          orders={orders}
-          onEditMachine={handleEditMachine}
-          onDeleteMachine={handleDeleteMachine}
+          onShowPasteDialog={canPerformAction('order.import') ? () => setShowPasteDialog(true) : null}
+          onShowAddForm={canPerformAction('order.create') ? () => setShowAddForm(true) : null}
+          onShowUrgentForm={canPerformAction('order.urgent') ? () => setShowUrgentForm(true) : null}
+          canImport={canPerformAction('order.import')}
+          canCreate={canPerformAction('order.create')}
+          canUrgent={canPerformAction('order.urgent')}
         />
 
         {/* 工单管理 */}
         <OrderManagement
           orders={orders}
-          onEditOrder={handleEditOrder}
-          onDeleteOrder={handleDeleteOrder}
-          onPauseOrder={handlePauseOrder}
-          onResumeOrder={handleResumeOrder}
+          onEditOrder={canPerformAction('order.edit') ? handleEditOrder : null}
+          onDeleteOrder={canPerformAction('order.delete') ? handleDeleteOrder : null}
+          onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
+          onResumeOrder={canPerformAction('order.resume') ? handleResumeOrder : null}
           onFinishOrder={handleFinishOrder}
-          onDelayOrder={handleDelayOrder}
-          onSubmitWorkOrder={handleSubmitWorkOrder}
-          onExportOrders={handleExportOrders}
-          onUpdateWmsQuantities={handleUpdateWmsQuantities}
+          onDelayOrder={canPerformAction('order.delay') ? handleDelayOrder : null}
+          onSubmitWorkOrder={canPerformAction('order.submit') ? handleSubmitWorkOrder : null}
+          onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
+          onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}
           onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
+          permissions={{
+            canEdit: canPerformAction('order.edit'),
+            canDelete: canPerformAction('order.delete'),
+            canPause: canPerformAction('order.pause'),
+            canResume: canPerformAction('order.resume'),
+            canFinish: true,
+            canDelay: canPerformAction('order.delay'),
+            canSubmit: canPerformAction('order.submit'),
+            canExport: canPerformAction('order.export'),
+            canUpdateWms: canPerformAction('wms.update'),
+            canReport: true
+          }}
         />
 
         {/* 当前工单生产时间分析 */}
@@ -746,43 +635,34 @@ const App = () => {
             orders={orders}
             dateRange={dateRange}
             draggedOrder={draggedOrder}
-            onDragStart={handleDragStart}
-            onDragOver={handleDragOver}
-            onDrop={handleDrop}
-            onReportWork={handleReportWork}
-            onExportGantt={handleExportGantt}
+            onDragStart={canPerformAction('gantt.drag') ? handleDragStart : null}
+            onDragOver={canPerformAction('gantt.drag') ? handleDragOver : null}
+            onDrop={canPerformAction('gantt.drag') ? handleDrop : null}
+            onReportWork={canPerformAction('order.report') ? handleReportWork : null}
+            onExportGantt={canPerformAction('gantt.export') ? handleExportGantt : null}
+            canDrag={canPerformAction('gantt.drag')}
+            canReport={canPerformAction('order.report')}
+            canExport={canPerformAction('gantt.export')}
           />
         </div>
 
         {/* 物料生产节拍表 */}
         <MaterialTaktTable
           materials={materials}
-          onAddMaterial={() => setShowMaterialForm(true)}
-          onEditMaterial={handleEditMaterial}
-          onDeleteMaterial={handleDeleteMaterial}
-          onImportMaterials={handleImportMaterials}
+          onAddMaterial={canPerformAction('order.write') ? () => setShowMaterialForm(true) : null}
+          onEditMaterial={canPerformAction('order.write') ? handleEditMaterial : null}
+          onDeleteMaterial={canPerformAction('order.write') ? handleDeleteMaterial : null}
+          onImportMaterials={canPerformAction('order.write') ? handleImportMaterials : null}
+          permissions={{
+            canAdd: canPerformAction('order.write'),
+            canEdit: canPerformAction('order.write'),
+            canDelete: canPerformAction('order.write'),
+            canImport: canPerformAction('order.write')
+          }}
         />
       </div>
 
       {/* 弹窗组件 */}
-      <MachineModal 
-        show={showMachineForm}
-        isEditing={false}
-        machineData={newMachine}
-        onMachineChange={setNewMachine}
-        onSave={handleAddMachine}
-        onClose={() => setShowMachineForm(false)}
-      />
-
-      <MachineModal 
-        show={!!editingMachine}
-        isEditing={true}
-        machineData={editingMachine || { name: "", status: "正常", coefficient: 1.00 }}
-        onMachineChange={setEditingMachine}
-        onSave={handleSaveMachine}
-        onClose={() => setEditingMachine(null)}
-      />
-
       <PasteModal 
         show={showPasteDialog}
         pasteData={pasteData}
@@ -877,9 +757,8 @@ const App = () => {
         onSubmit={handleConfirmSubmitWorkOrder}
         onClose={() => setShowSubmitWorkOrderModal(false)}
       />
-      </div>
-    </Layout>
+    </div>
   );
 };
 
-export default App;
+export default OrderManagementPage;

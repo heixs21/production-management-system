@@ -4,9 +4,11 @@ const API_BASE_URL = `http://${window.location.hostname}:12454/api`;
 // 通用请求函数
 const apiRequest = async (url, options = {}) => {
   try {
+    const token = localStorage.getItem('token');
     const response = await fetch(`${API_BASE_URL}${url}`, {
       headers: {
         'Content-Type': 'application/json',
+        ...(token && { 'Authorization': `Bearer ${token}` }),
         ...options.headers,
       },
       ...options,
@@ -99,4 +101,42 @@ export const workOrderApi = {
     method: 'POST',
     body: JSON.stringify(workOrderData),
   })
+};
+
+// 认证API
+export const authApi = {
+  // 用户登录
+  login: (credentials) => apiRequest('/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(credentials),
+  }),
+  
+  // 验证token
+  verify: () => apiRequest('/auth/verify'),
+  
+  // 获取用户信息
+  getProfile: () => apiRequest('/auth/profile'),
+};
+
+// 用户管理API
+export const userApi = {
+  // 获取所有用户
+  getAll: () => apiRequest('/users'),
+  
+  // 创建用户
+  create: (user) => apiRequest('/users', {
+    method: 'POST',
+    body: JSON.stringify(user),
+  }),
+  
+  // 更新用户
+  update: (id, user) => apiRequest(`/users/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(user),
+  }),
+  
+  // 删除用户
+  delete: (id) => apiRequest(`/users/${id}`, {
+    method: 'DELETE',
+  }),
 };

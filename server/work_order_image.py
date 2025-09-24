@@ -151,7 +151,14 @@ def generate_work_order_image(order_data):
         # 生成条形码
         工单号 = 基础信息.get('工单号', '').replace('000000', '')
         工序号 = 工序.get('工序号', '').zfill(4)
-        barcode_text = f"{工单号}{工序号}"
+        
+        # 获取第一个员工的人员号
+        员工分配 = 工序.get("员工分配", [])
+        人员号 = ""
+        if isinstance(员工分配, list) and 员工分配:
+            人员号 = 员工分配[0].get('PERNR', '')
+        
+        barcode_text = f"{工单号}{人员号}{工序号}"
         
         try:
             # 生成条形码图片

@@ -10,7 +10,10 @@ const GanttChart = ({
   onDragOver,
   onDrop,
   onReportWork,
-  onExportGantt
+  onExportGantt,
+  canDrag = true,
+  canReport = true,
+  canExport = true
 }) => {
   const colors = getPriorityColors();
   const [zoomLevel, setZoomLevel] = useState(100); // 缩放比例，100为默认
@@ -75,12 +78,14 @@ const GanttChart = ({
               +
             </button>
           </div>
-          <button
-            onClick={onExportGantt}
-            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
-          >
-            📊 导出甘特图
-          </button>
+          {canExport && onExportGantt && (
+            <button
+              onClick={onExportGantt}
+              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+            >
+              📊 导出甘特图
+            </button>
+          )}
         </div>
       </div>
       
@@ -258,10 +263,10 @@ const GanttChart = ({
                                     return (
                                       <div
                                         key={order.id}
-                                        draggable={!isCompleted}
-                                        onDragStart={(e) => !isCompleted && onDragStart(e, order)}
+                                        draggable={!isCompleted && canDrag}
+                                        onDragStart={(e) => !isCompleted && canDrag && onDragStart && onDragStart(e, order)}
                                         className={`order-card ${cardColor} text-white p-1 rounded text-xs min-w-8 flex-1
-                                          ${isCompleted ? 'cursor-default' : 'cursor-move'}
+                                          ${isCompleted || !canDrag ? 'cursor-default' : 'cursor-move'}
                                           transition-all duration-200 ${
                                             draggedOrder?.id === order.id ? 'opacity-50' : ''
                                           }`}
@@ -282,16 +287,18 @@ const GanttChart = ({
                                             {isDelayed && <span>⚠️</span>}
                                             {isCompleted && <span>✅</span>}
                                             {order.isPaused && <span>⏸️</span>}
-                                            <button
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                onReportWork && onReportWork(order, date);
-                                              }}
-                                              className="w-3 h-3 bg-white bg-opacity-30 rounded hover:bg-opacity-50 flex items-center justify-center transition-all"
-                                              title="报工"
-                                            >
-                                              📝
-                                            </button>
+                                            {canReport && onReportWork && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  onReportWork(order, date);
+                                                }}
+                                                className="w-3 h-3 bg-white bg-opacity-30 rounded hover:bg-opacity-50 flex items-center justify-center transition-all"
+                                                title="报工"
+                                              >
+                                                📝
+                                              </button>
+                                            )}
                                           </div>
                                         </div>
                                       </div>
@@ -343,7 +350,7 @@ const GanttChart = ({
             </div>
           </div>
           <div className="text-xs text-gray-500">
-            拖拽未完成工单可调整时间和机台
+            {canDrag ? '拖拽未完成工单可调整时间和机台' : '只读模式 - 无法拖拽工单'}
           </div>
         </div>
       </div>

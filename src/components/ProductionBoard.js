@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../contexts/AuthContext';
 import { getStatusColors, formatDateOnly, calculateOrderStatus } from '../utils/orderUtils';
 
-const ProductionBoard = ({ onBackToAdmin }) => {
+const ProductionBoard = () => {
+  const navigate = useNavigate();
+  const { token } = useAuth();
   const [machines, setMachines] = useState([]);
   const [orders, setOrders] = useState([]);
   const [selectedMachine, setSelectedMachine] = useState('');
@@ -13,9 +17,14 @@ const ProductionBoard = ({ onBackToAdmin }) => {
     const fetchData = async (isInitialLoad = false) => {
       try {
         const serverUrl = `http://${window.location.hostname}:12454`;
+        const headers = {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        };
+        
         const [machinesRes, ordersRes] = await Promise.all([
-          fetch(`${serverUrl}/api/machines`),
-          fetch(`${serverUrl}/api/orders`)
+          fetch(`${serverUrl}/api/machines`, { headers }),
+          fetch(`${serverUrl}/api/orders`, { headers })
         ]);
         
         const machinesData = await machinesRes.json();
@@ -99,15 +108,13 @@ const ProductionBoard = ({ onBackToAdmin }) => {
       <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            {onBackToAdmin && (
-              <button
-                onClick={onBackToAdmin}
-                className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center space-x-2"
-              >
-                <span>←</span>
-                <span>返回管理</span>
-              </button>
-            )}
+            <button
+              onClick={() => navigate('/orders')}
+              className="px-4 py-2 bg-gray-600 text-white rounded hover:bg-gray-700 flex items-center space-x-2"
+            >
+              <span>←</span>
+              <span>返回管理</span>
+            </button>
             <div>
               <h1 className="text-3xl font-bold text-gray-800">🏭 生产看板</h1>
               <p className="text-gray-600 mt-2">实时工单排产信息</p>

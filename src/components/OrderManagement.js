@@ -13,7 +13,8 @@ const OrderManagement = ({
   onSubmitWorkOrder,
   onExportOrders,
   onUpdateWmsQuantities,
-  onGenerateWorkOrderReport
+  onGenerateWorkOrderReport,
+  permissions = {}
 }) => {
   const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
   const [searchTerm, setSearchTerm] = useState('');
@@ -54,19 +55,23 @@ const OrderManagement = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">工单管理</h2>
         <div className="flex space-x-2">
-          <button
-            onClick={() => onUpdateWmsQuantities && onUpdateWmsQuantities()}
-            className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
-          >
-            🔄 更新WMS数量
-          </button>
-          <button
-            onClick={() => onExportOrders && onExportOrders()}
-            className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
-          >
-            <Download className="w-4 h-4 mr-1" />
-            导出Excel
-          </button>
+          {permissions.canUpdateWms && onUpdateWmsQuantities && (
+            <button
+              onClick={onUpdateWmsQuantities}
+              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+            >
+              🔄 更新WMS数量
+            </button>
+          )}
+          {permissions.canExport && onExportOrders && (
+            <button
+              onClick={onExportOrders}
+              className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
+            >
+              <Download className="w-4 h-4 mr-1" />
+              导出Excel
+            </button>
+          )}
         </div>
       </div>
       
@@ -178,20 +183,24 @@ const OrderManagement = ({
                       </td>
                       <td className="p-2 text-center">
                         <div className="flex justify-center space-x-1">
-                          <button
-                            onClick={() => onEditOrder(order)}
-                            className="text-blue-600 hover:text-blue-800"
-                            title="编辑工单"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => onDeleteOrder(order.id)}
-                            className="text-red-600 hover:text-red-800"
-                            title="删除工单"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
+                          {permissions.canEdit && onEditOrder && (
+                            <button
+                              onClick={() => onEditOrder(order)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="编辑工单"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {permissions.canDelete && onDeleteOrder && (
+                            <button
+                              onClick={() => onDeleteOrder(order.id)}
+                              className="text-red-600 hover:text-red-800"
+                              title="删除工单"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -323,66 +332,90 @@ const OrderManagement = ({
                           </td>
                           <td className="p-2">
                             <div className="flex space-x-1">
-                              <button
-                                onClick={() => onEditOrder(order)}
-                                className="p-1 text-blue-600 hover:bg-blue-100 rounded"
-                                title="编辑"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() => onDeleteOrder(order.id)}
-                                className="p-1 text-red-600 hover:bg-red-100 rounded"
-                                title="删除"
-                              >
-                                <X className="w-4 h-4" />
-                              </button>
-                              {order.isPaused ? (
+                              {permissions.canEdit && onEditOrder && (
                                 <button
-                                  onClick={() => onResumeOrder(order)}
-                                  className="p-1 text-green-600 hover:bg-green-100 rounded"
-                                  title="恢复"
+                                  onClick={() => onEditOrder(order)}
+                                  className="p-1 text-blue-600 hover:bg-blue-100 rounded"
+                                  title="编辑"
                                 >
-                                  ▶️
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={() => onPauseOrder(order)}
-                                  className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                                  title="暂停"
-                                >
-                                  ⏸️
+                                  <Edit3 className="w-4 h-4" />
                                 </button>
                               )}
+                              {permissions.canDelete && onDeleteOrder && (
+                                <button
+                                  onClick={() => onDeleteOrder(order.id)}
+                                  className="p-1 text-red-600 hover:bg-red-100 rounded"
+                                  title="删除"
+                                >
+                                  <X className="w-4 h-4" />
+                                </button>
+                              )}
+                              {order.isPaused ? (
+                                permissions.canResume && onResumeOrder && (
+                                  <button
+                                    onClick={() => onResumeOrder(order)}
+                                    className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                    title="恢复"
+                                  >
+                                    ▶️
+                                  </button>
+                                )
+                              ) : (
+                                permissions.canPause && onPauseOrder && (
+                                  <button
+                                    onClick={() => onPauseOrder(order)}
+                                    className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+                                    title="暂停"
+                                  >
+                                    ⏸️
+                                  </button>
+                                )
+                              )}
+                              {/* 结束和预览按钮对所有用户可见 */}
                               <button
-                                onClick={() => onFinishOrder(order)}
-                                className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                onClick={() => onFinishOrder && onFinishOrder(order)}
+                                className={`p-1 rounded ${
+                                  onFinishOrder 
+                                    ? 'text-green-600 hover:bg-green-100' 
+                                    : 'text-gray-400 cursor-not-allowed'
+                                }`}
                                 title="结束工单"
+                                disabled={!onFinishOrder}
                               >
                                 ✅
                               </button>
-                              <button
-                                onClick={() => onDelayOrder(order)}
-                                className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                                title="设置延期预计结束日期"
-                              >
-                                ⏰
-                              </button>
-                              <button
-                                onClick={() => onSubmitWorkOrder && onSubmitWorkOrder(order)}
-                                className={`p-1 rounded ${
-                                  order.isSubmitted 
-                                    ? 'text-gray-500 hover:bg-gray-100' 
-                                    : 'text-blue-600 hover:bg-blue-100'
-                                }`}
-                                title={order.isSubmitted ? '重新下达工单' : '下达工单'}
-                              >
-                                {order.isSubmitted ? '🔄' : '📤'}
-                              </button>
+                              {permissions.canDelay && onDelayOrder && (
+                                <button
+                                  onClick={() => onDelayOrder(order)}
+                                  className="p-1 text-orange-600 hover:bg-orange-100 rounded"
+                                  title="设置延期预计结束日期"
+                                >
+                                  ⏰
+                                </button>
+                              )}
+                              {permissions.canSubmit && onSubmitWorkOrder && (
+                                <button
+                                  onClick={() => onSubmitWorkOrder(order)}
+                                  className={`p-1 rounded ${
+                                    order.isSubmitted 
+                                      ? 'text-gray-500 hover:bg-gray-100' 
+                                      : 'text-blue-600 hover:bg-blue-100'
+                                  }`}
+                                  title={order.isSubmitted ? '重新下达工单' : '下达工单'}
+                                >
+                                  {order.isSubmitted ? '🔄' : '📤'}
+                                </button>
+                              )}
+                              {/* 预览按钮对所有用户可见 */}
                               <button
                                 onClick={() => onGenerateWorkOrderReport && onGenerateWorkOrderReport(order)}
-                                className="p-1 text-purple-600 hover:bg-purple-100 rounded"
+                                className={`p-1 rounded ${
+                                  onGenerateWorkOrderReport 
+                                    ? 'text-purple-600 hover:bg-purple-100' 
+                                    : 'text-gray-400 cursor-not-allowed'
+                                }`}
                                 title="生成工序报工单预览"
+                                disabled={!onGenerateWorkOrderReport}
                               >
                                 📋
                               </button>

@@ -1,5 +1,4 @@
 pyrfc==3.3
-pyrfc==3.3
 python-dotenv==1.0.0
 Pillow==10.0.1
 python-barcode==0.15.1
