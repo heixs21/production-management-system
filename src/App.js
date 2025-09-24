@@ -402,6 +402,56 @@ const App = () => {
     setShowSubmitWorkOrderModal(true);
   }, []);
 
+  // 生成工序报工单处理函数
+  const handleGenerateWorkOrderReport = useCallback(async (order) => {
+    try {
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${serverUrl}/api/sap/work-order-report`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ orderNo: order.orderNo })
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        // 创建新窗口显示图片
+        const newWindow = window.open('', '_blank');
+        newWindow.document.write(`
+          <html>
+            <head>
+              <title>工序报工单 - ${order.orderNo}</title>
+              <style>
+                body { margin: 0; padding: 20px; text-align: center; background: #f5f5f5; }
+                img { max-width: 100%; height: auto; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+                .header { margin-bottom: 20px; }
+                .close-btn { 
+                  position: fixed; top: 20px; right: 20px; 
+                  padding: 10px 20px; background: #dc3545; color: white; 
+                  border: none; border-radius: 5px; cursor: pointer;
+                }
+              </style>
+            </head>
+            <body>
+              <button class="close-btn" onclick="window.close()">关闭</button>
+              <div class="header">
+                <h2>工序报工单预览</h2>
+                <p>工单号: ${order.orderNo}</p>
+              </div>
+              <img src="data:image/png;base64,${result.image}" alt="工序报工单" />
+            </body>
+          </html>
+        `);
+        newWindow.document.close();
+      } else {
+        alert('生成工序报工单失败: ' + result.error);
+      }
+    } catch (error) {
+      alert('生成工序报工单失败: ' + error.message);
+    }
+  }, []);
+
   const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
     try {
       setSubmitLoading(true);
@@ -655,6 +705,7 @@ const App = () => {
           onSubmitWorkOrder={handleSubmitWorkOrder}
           onExportOrders={handleExportOrders}
           onUpdateWmsQuantities={handleUpdateWmsQuantities}
+          onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
         />
 
         {/* 当前工单生产时间分析 */}

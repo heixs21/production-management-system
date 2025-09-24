@@ -12,7 +12,8 @@ const OrderManagement = ({
   onDelayOrder,
   onSubmitWorkOrder,
   onExportOrders,
-  onUpdateWmsQuantities
+  onUpdateWmsQuantities,
+  onGenerateWorkOrderReport
 }) => {
   const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
   const [searchTerm, setSearchTerm] = useState('');
@@ -377,6 +378,13 @@ const OrderManagement = ({
                                 title={order.isSubmitted ? '重新下达工单' : '下达工单'}
                               >
                                 {order.isSubmitted ? '🔄' : '📤'}
+                              </button>
+                              <button
+                                onClick={() => onGenerateWorkOrderReport && onGenerateWorkOrderReport(order)}
+                                className="p-1 text-purple-600 hover:bg-purple-100 rounded"
+                                title="生成工序报工单预览"
+                              >
+                                📋
                               </button>
                             </div>
                           </td>

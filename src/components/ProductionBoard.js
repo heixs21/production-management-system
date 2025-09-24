@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
+import { getStatusColors, formatDateOnly, calculateOrderStatus } from '../utils/orderUtils';
 
 const ProductionBoard = ({ onBackToAdmin }) => {
   const [machines, setMachines] = useState([]);
@@ -21,8 +21,14 @@ const ProductionBoard = ({ onBackToAdmin }) => {
         const machinesData = await machinesRes.json();
         const ordersData = await ordersRes.json();
         
+        // 更新工单状态
+        const updatedOrders = ordersData.map(order => ({
+          ...order,
+          status: calculateOrderStatus(order, machinesData, ordersData)
+        }));
+        
         setMachines(machinesData);
-        setOrders(ordersData);
+        setOrders(updatedOrders);
         
         // 只在初次加载时设置默认机台
         if (isInitialLoad && machinesData.length > 0 && !selectedMachine) {
@@ -70,12 +76,11 @@ const ProductionBoard = ({ onBackToAdmin }) => {
 
   // 获取当前正在生产的工单
   const currentOrder = useMemo(() => {
-    const today = new Date().toISOString().split('T')[0];
-    return machineOrders.find(order => {
-      const startDate = order.startDate;
-      const endDate = order.actualEndDate || order.delayedExpectedEndDate || order.expectedEndDate;
-      return startDate <= today && (!endDate || endDate >= today) && !order.isPaused;
-    });
+    // 查找状态为"生产中"或"延期生产中"或"紧急生产"的工单
+    return machineOrders.find(order => 
+      (order.status === '生产中' || order.status === '延期生产中' || order.status === '紧急生产') && 
+      !order.isPaused
+    );
   }, [machineOrders]);
 
   const statusColors = getStatusColors();

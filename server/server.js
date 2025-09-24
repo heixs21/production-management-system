@@ -634,6 +634,84 @@ async function ensureSapAuth() {
   return await getSapAuth();
 }
 
+// SAP工序报工单API
+app.post('/api/sap/work-order-report', async (req, res) => {
+  try {
+    const { orderNo } = req.body;
+    
+    if (!orderNo) {
+      return res.status(400).json({
+        success: false,
+        error: '工单号不能为空'
+      });
+    }
+
+    const { spawn } = require('child_process');
+    const path = require('path');
+    const fs = require('fs');
+    
+    // 调用Python脚本
+    const pythonScript = path.join(__dirname, 'sap_rfc_extended.py');
+    
+    // 检查Python脚本是否存在
+    if (!fs.existsSync(pythonScript)) {
+      return res.status(500).json({
+        success: false,
+        error: 'Python脚本不存在: ' + pythonScript
+      });
+    }
+    
+    // 优先使用环境变量指定的Python路径，否则使用默认命令
+    const pythonCmd = process.env.PYTHON_PATH || (process.platform === 'win32' ? 'python' : 'python3');
+    const python = spawn(pythonCmd, [pythonScript, orderNo], {
+      env: {
+        ...process.env,
+        SAP_RFC_USERNAME: process.env.SAP_RFC_USERNAME || 'H11974',
+        SAP_RFC_PASSWORD: process.env.SAP_RFC_PASSWORD || 'Hota@20251313',
+        PYTHONIOENCODING: 'utf-8',
+        PYTHONUNBUFFERED: '1'
+      },
+      encoding: 'utf8'
+    });
+
+    let output = '';
+    let errorOutput = '';
+
+    python.stdout.on('data', (data) => {
+      output += data.toString();
+    });
+
+    python.stderr.on('data', (data) => {
+      errorOutput += data.toString();
+    });
+
+    python.on('close', (code) => {
+      if (code !== 0) {
+        return res.status(500).json({
+          success: false,
+          error: 'SAP RFC连接失败: ' + (errorOutput || '未知错误')
+        });
+      }
+
+      try {
+        const result = JSON.parse(output);
+        res.json(result);
+      } catch (parseError) {
+        res.status(500).json({
+          success: false,
+          error: '数据解析失败'
+        });
+      }
+    });
+
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'SAP RFC系统连接失败'
+    });
+  }
+});
+
 // SAP RFC系统代理API
 app.post('/api/sap/order-material', async (req, res) => {
   try {
@@ -788,7 +866,7 @@ app.post('/api/sap/clear-token', (req, res) => {
 // 手动更新WMS报工数量的API
 app.post('/api/wms/update-quantities', async (req, res) => {
   try {
-    // 根据日期条件查找需要更新的工单，而不仅仅依赖状态字段
+    // 查找已开始但未完成且未暂停的工单
     const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
       `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
@@ -796,9 +874,8 @@ app.post('/api/wms/update-quantities', async (req, res) => {
        WHERE orderNo IS NOT NULL 
          AND actualEndDate IS NULL 
          AND isPaused = 0 
-         AND startDate <= ? 
-         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
-      [today, today]
+         AND startDate <= ?`,
+      [today]
     );
     
     let successCount = 0;
@@ -919,7 +996,7 @@ app.post('/api/mes/workOrder', async (req, res) => {
 // 定时更新WMS报工数量
 async function updateWmsQuantities() {
   try {
-    // 根据日期条件查找需要更新的工单
+    // 查找已开始但未完成且未暂停的工单
     const today = new Date().toISOString().split('T')[0];
     const [orders] = await pool.execute(
       `SELECT id, orderNo, startDate, expectedEndDate, actualEndDate, isPaused 
@@ -927,9 +1004,8 @@ async function updateWmsQuantities() {
        WHERE orderNo IS NOT NULL 
          AND actualEndDate IS NULL 
          AND isPaused = 0 
-         AND startDate <= ? 
-         AND (expectedEndDate IS NULL OR expectedEndDate >= ?)`,
-      [today, today]
+         AND startDate <= ?`,
+      [today]
     );
     
     for (const order of orders) {

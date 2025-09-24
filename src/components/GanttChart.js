@@ -35,14 +35,7 @@ const GanttChart = ({
     }
   }, [dateRange]);
   
-  // 调试信息
-  console.log('甘特图组件调试:', {
-    machines: machines?.length || 0,
-    orders: orders?.length || 0,
-    dateRange: dateRange?.length || 0,
-    firstDate: dateRange?.[0],
-    lastDate: dateRange?.[dateRange?.length - 1]
-  });
+
   
   if (!machines || !orders || !dateRange) {
     return <div className="p-4 text-center text-gray-500">正在加载甘特图数据...</div>;
