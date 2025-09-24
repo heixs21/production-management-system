@@ -392,17 +392,11 @@ app.delete('/api/users/:id', authenticateToken, requireAdmin, async (req, res) =
 });
 
 // 机台API
-app.get('/api/machines', authenticateToken, async (req, res) => {
+app.get('/api/machines', async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM machines ORDER BY id');
     
-    // 根据用户权限过滤机台
-    let filteredMachines = rows;
-    if (req.user.role !== 'admin' && req.user.allowedMachines && !req.user.allowedMachines.includes('all')) {
-      filteredMachines = rows.filter(machine => req.user.allowedMachines.includes(machine.name));
-    }
-    
-    res.json(filteredMachines);
+    res.json(rows);
   } catch (error) {
     console.error('获取机台数据失败:', error);
     res.status(500).json({ error: error.message });

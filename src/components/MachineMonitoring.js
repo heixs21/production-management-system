@@ -104,7 +104,7 @@ const MachineMonitoring = () => {
   // 获取机台名称
   const getMachineName = (lineCode) => {
     const machine = machines.find(m => m.lineCode === lineCode);
-    return machine ? machine.name : lineCode;
+    return machine ? machine.name : `产线${lineCode}`;
   };
 
   // 按产线代号分组并排序

@@ -71,6 +71,7 @@ const OrderManagementPage = () => {
   const loading = ordersLoading || machinesLoading || materialsLoading;
   const error = ordersError || machinesError || materialsError;
   const [draggedOrder, setDraggedOrder] = useState(null);
+  const [lastDragOperation, setLastDragOperation] = useState(null);
 
   // 弹窗状态
   const [showAddForm, setShowAddForm] = useState(false);
@@ -472,6 +473,18 @@ const OrderManagementPage = () => {
     }
   }, [importMaterials]);
 
+  // 撤销上一次拖拽操作
+  const handleUndoLastDrag = useCallback(async () => {
+    if (!lastDragOperation) return;
+    
+    try {
+      await updateOrder(lastDragOperation.original);
+      setLastDragOperation(null);
+    } catch (err) {
+      alert(`撤销失败: ${err.message}`);
+    }
+  }, [lastDragOperation, updateOrder]);
+
   // 自定义日期处理
   const handleCustomDateChange = useCallback((startDate, endDate) => {
     setCustomStartDate(startDate);
@@ -562,6 +575,9 @@ const OrderManagementPage = () => {
     e.preventDefault();
     if (!draggedOrder) return;
 
+    // 保存原始状态用于撤销
+    const originalOrder = { ...draggedOrder };
+
     const orderDuration = new Date(draggedOrder.expectedEndDate || draggedOrder.startDate) - new Date(draggedOrder.startDate);
     const newStartDate = new Date(dateRange[targetDateIndex]);
     const newEndDate = new Date(newStartDate.getTime() + orderDuration);
@@ -572,6 +588,13 @@ const OrderManagementPage = () => {
       startDate: newStartDate.toISOString().split("T")[0],
       expectedEndDate: newEndDate.toISOString().split("T")[0],
     };
+
+    // 保存撤销信息
+    setLastDragOperation({
+      original: originalOrder,
+      updated: updatedOrder,
+      timestamp: Date.now()
+    });
 
     updateOrder(updatedOrder);
     setDraggedOrder(null);
@@ -645,6 +668,8 @@ const OrderManagementPage = () => {
             onDrop={canPerformAction('gantt.drag') ? handleDrop : null}
             onReportWork={canPerformAction('order.report') ? handleReportWork : null}
             onExportGantt={canPerformAction('gantt.export') ? handleExportGantt : null}
+            onUndoLastDrag={canPerformAction('gantt.drag') ? handleUndoLastDrag : null}
+            lastDragOperation={lastDragOperation}
             canDrag={canPerformAction('gantt.drag')}
             canReport={canPerformAction('order.report')}
             canExport={canPerformAction('gantt.export')}

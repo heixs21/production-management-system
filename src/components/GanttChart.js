@@ -11,6 +11,8 @@ const GanttChart = ({
   onDrop,
   onReportWork,
   onExportGantt,
+  onUndoLastDrag,
+  lastDragOperation,
   canDrag = true,
   canReport = true,
   canExport = true,
@@ -119,6 +121,15 @@ const GanttChart = ({
               +
             </button>
           </div>
+          {canDrag && onUndoLastDrag && lastDragOperation && (
+            <button
+              onClick={onUndoLastDrag}
+              className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 flex items-center"
+              title="撤销上一次拖拽操作"
+            >
+              ↶ 撤销
+            </button>
+          )}
           {canExport && onExportGantt && (
             <button
               onClick={onExportGantt}
