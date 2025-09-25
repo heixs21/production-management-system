@@ -501,7 +501,7 @@ const OrderManagement = ({
                               >
                                 ✅
                               </button>
-                              {permissions.canRead && (
+                              {permissions.canProductionReport && (
                                 <button
                                   onClick={() => handleProductionReport(order)}
                                   className="p-1 text-green-600 hover:bg-green-100 rounded"
