@@ -77,6 +77,10 @@ export const AuthProvider = ({ children }) => {
       'order.import': ['orders.write', 'orders.all'],
       'order.export': ['orders.read', 'orders.write', 'orders.all'],
       'order.report': ['orders.write', 'orders.all'],
+      'order.write': ['orders.write', 'orders.all'],
+      
+      // 基础读取权限
+      'orders.read': ['orders.read', 'orders.write', 'orders.all'],
       
       // 甘特图权限
       'gantt.view': ['orders.read', 'orders.write', 'orders.all'],

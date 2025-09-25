@@ -627,8 +627,7 @@ const OrderManagementPage = () => {
             canExport: canPerformAction('order.export'),
             canUpdateWms: canPerformAction('wms.update'),
             canReport: true,
-            canRead: canPerformAction('orders.read'),
-            canProductionReport: canPerformAction('production.report')
+            canRead: canPerformAction('orders.read')
           }}
         />
 

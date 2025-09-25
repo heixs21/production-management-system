@@ -122,13 +122,7 @@ async function initDatabase() {
     if (existingUser.length === 0) {
       await connection.execute(
         'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
-        ['user', 'user123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board', 'production.report']), JSON.stringify(['all'])]
-      );
-    } else {
-      // 更新现有用户权限
-      await connection.execute(
-        'UPDATE users SET permissions = ? WHERE username = ?',
-        [JSON.stringify(['orders.read', 'machines.read', 'board', 'production.report']), 'user']
+        ['user', 'user123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board']), JSON.stringify(['all'])]
       );
     }
 
@@ -136,13 +130,7 @@ async function initDatabase() {
     if (existingOperator.length === 0) {
       await connection.execute(
         'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
-        ['operator', 'op123', 'user', JSON.stringify(['orders.write', 'machines.read', 'board', 'production.report']), JSON.stringify(['all'])]
-      );
-    } else {
-      // 更新现有操作员权限
-      await connection.execute(
-        'UPDATE users SET permissions = ? WHERE username = ?',
-        [JSON.stringify(['orders.write', 'machines.read', 'board', 'production.report']), 'operator']
+        ['operator', 'op123', 'user', JSON.stringify(['orders.write', 'machines.read', 'board']), JSON.stringify(['all'])]
       );
     }
 
