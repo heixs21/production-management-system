@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
+import ProductionReportModal from './ProductionReportModal';
 
 const OrderManagement = ({
   orders,
@@ -12,7 +13,6 @@ const OrderManagement = ({
   onPauseOrder,
   onResumeOrder,
   onFinishOrder,
-  onDelayOrder,
   onSubmitWorkOrder,
   onExportOrders,
   onUpdateWmsQuantities,
@@ -23,6 +23,7 @@ const OrderManagement = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
+  const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
   // 使用外部传入的分组状态
   const itemsPerPage = 10;
   
@@ -94,6 +95,14 @@ const OrderManagement = ({
       newCollapsed.add(machine);
     }
     setCollapsedMachines(newCollapsed);
+  };
+
+  const handleProductionReport = (order) => {
+    setProductionReportModal({ isOpen: true, order });
+  };
+
+  const handleCloseProductionReport = () => {
+    setProductionReportModal({ isOpen: false, order: null });
   };
 
   return (
@@ -492,13 +501,13 @@ const OrderManagement = ({
                               >
                                 ✅
                               </button>
-                              {permissions.canDelay && onDelayOrder && (
+                              {permissions.canRead && (
                                 <button
-                                  onClick={() => onDelayOrder(order)}
-                                  className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                                  title="设置延期预计结束日期"
+                                  onClick={() => handleProductionReport(order)}
+                                  className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                  title="产量上报"
                                 >
-                                  ⏰
+                                  <BarChart3 className="w-4 h-4" />
                                 </button>
                               )}
                               {permissions.canSubmit && onSubmitWorkOrder && (
@@ -541,6 +550,17 @@ const OrderManagement = ({
           })()}
         </div>
       )}
+      
+      {/* 产量上报弹窗 */}
+      <ProductionReportModal
+        isOpen={productionReportModal.isOpen}
+        onClose={handleCloseProductionReport}
+        order={productionReportModal.order}
+        onSave={() => {
+          // 可以在这里刷新数据或执行其他操作
+          console.log('产量上报保存成功');
+        }}
+      />
     </div>
   );
 };

@@ -16,7 +16,7 @@ import {
   ReportWorkModal,
   MaterialModal,
   FinishOrderModal,
-  DelayOrderModal,
+
   SubmitWorkOrderModal
 } from "../components/Modals";
 
@@ -82,8 +82,7 @@ const OrderManagementPage = () => {
   const [showReportWorkModal, setShowReportWorkModal] = useState(false);
   const [showFinishOrderModal, setShowFinishOrderModal] = useState(false);
   const [finishingOrder, setFinishingOrder] = useState(null);
-  const [showDelayOrderModal, setShowDelayOrderModal] = useState(false);
-  const [delayingOrder, setDelayingOrder] = useState(null);
+
   const [showSubmitWorkOrderModal, setShowSubmitWorkOrderModal] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -313,24 +312,7 @@ const OrderManagementPage = () => {
     }
   }, [finishingOrder, updateOrder]);
 
-  // 延期工单处理函数
-  const handleDelayOrder = useCallback((order) => {
-    setDelayingOrder(order);
-    setShowDelayOrderModal(true);
-  }, []);
 
-  const handleConfirmDelayOrder = useCallback(async (delayData) => {
-    try {
-      await updateOrder({
-        ...delayingOrder,
-        ...delayData
-      });
-      setShowDelayOrderModal(false);
-      setDelayingOrder(null);
-    } catch (err) {
-      alert(`设置延期失败: ${err.message}`);
-    }
-  }, [delayingOrder, updateOrder]);
 
   // 下达工单处理函数
   const handleSubmitWorkOrder = useCallback((order) => {
@@ -629,7 +611,7 @@ const OrderManagementPage = () => {
           onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
           onResumeOrder={canPerformAction('order.resume') ? handleResumeOrder : null}
           onFinishOrder={handleFinishOrder}
-          onDelayOrder={canPerformAction('order.delay') ? handleDelayOrder : null}
+
           onSubmitWorkOrder={canPerformAction('order.submit') ? handleSubmitWorkOrder : null}
           onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
           onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}
@@ -640,11 +622,12 @@ const OrderManagementPage = () => {
             canPause: canPerformAction('order.pause'),
             canResume: canPerformAction('order.resume'),
             canFinish: true,
-            canDelay: canPerformAction('order.delay'),
+
             canSubmit: canPerformAction('order.submit'),
             canExport: canPerformAction('order.export'),
             canUpdateWms: canPerformAction('wms.update'),
-            canReport: true
+            canReport: true,
+            canRead: canPerformAction('orders.read')
           }}
         />
 
@@ -776,12 +759,7 @@ const OrderManagementPage = () => {
         onClose={() => setShowFinishOrderModal(false)}
       />
 
-      <DelayOrderModal
-        show={showDelayOrderModal}
-        order={delayingOrder}
-        onConfirm={handleConfirmDelayOrder}
-        onClose={() => setShowDelayOrderModal(false)}
-      />
+
 
       <SubmitWorkOrderModal
         show={showSubmitWorkOrderModal}
