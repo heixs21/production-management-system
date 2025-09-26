@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/api';
 import { getErrorMessage } from '../utils/errorMessages';
 
+// 全局强制退出功能
+window.forceLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('selectedCompany');
+  window.location.href = '/login';
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -34,6 +42,17 @@ export const AuthProvider = ({ children }) => {
       }
     }
     setLoading(false);
+    
+    // 添加全局键盘快捷键：Ctrl+Shift+L 强制退出
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        window.forceLogout();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const login = async (username, password, companyId = 'hetai-logistics') => {
