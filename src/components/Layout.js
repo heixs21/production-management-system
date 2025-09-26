@@ -46,8 +46,17 @@ const Layout = ({ children }) => {
   }
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    try {
+      logout();
+      // 使用 window.location 而不是 navigate 来确保完全重新加载
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('退出登录失败:', error);
+      // 强制清理并重定向
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+    }
   };
 
   return (
@@ -70,9 +79,9 @@ const Layout = ({ children }) => {
           {menuItems.map((item) => {
             // 检查权限：只要有读或写权限就可以访问
             const canAccess = item.permission === 'orders' 
-              ? hasPermission('orders.read') || hasPermission('orders.write')
+              ? hasPermission('orders.read') || hasPermission('orders.write') || hasPermission('orders.all')
               : item.permission === 'machines'
-              ? hasPermission('machines.read') || hasPermission('machines.write')
+              ? hasPermission('machines.read') || hasPermission('machines.write') || hasPermission('machines.all')
               : hasPermission(item.permission);
             
             if (!canAccess) return null;

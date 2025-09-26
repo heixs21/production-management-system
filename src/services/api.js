@@ -28,6 +28,13 @@ const apiRequest = async (url, options = {}) => {
     });
 
     if (!response.ok) {
+      // 如果是401或403错误，清理本地存储并重定向到登录页
+      if (response.status === 401 || response.status === 403) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+        return;
+      }
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 

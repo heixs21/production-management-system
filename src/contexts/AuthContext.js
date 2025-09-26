@@ -37,6 +37,8 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(data.user));
       return { success: true };
     } catch (error) {
+      // 清理旧的token和用户信息
+      logout();
       return { success: false, error: error.message || '登录失败，请检查网络连接' };
     }
   };
@@ -55,7 +57,10 @@ export const AuthProvider = ({ children }) => {
     // 默认权限：所有用户都可以访问生产看板
     if (permission === 'board') return true;
     
-    return user.permissions && (user.permissions.includes('all') || user.permissions.includes(permission));
+    // 检查用户权限
+    if (!user.permissions) return false;
+    
+    return user.permissions.includes('all') || user.permissions.includes(permission);
   };
 
   // 检查具体操作权限
