@@ -1,5 +1,7 @@
 import React from 'react';
 import { Calendar, Plus, Upload } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { getCompanyConfig } from '../config/companies';
 
 const Header = ({
   onShowPasteDialog,
@@ -9,11 +11,13 @@ const Header = ({
   canCreate = true,
   canUrgent = true
 }) => {
+  const { user } = useAuth();
+  const companyConfig = getCompanyConfig(user?.companyId);
   return (
     <div className="bg-blue-600 text-white p-4 flex justify-between items-center">
       <h1 className="text-2xl font-bold flex items-center gap-2">
         <Calendar className="w-6 h-6" />
-        生产甘特图管理系统
+{companyConfig.name}生产管理系统
       </h1>
       <div className="flex gap-2">
         {canImport && onShowPasteDialog && (

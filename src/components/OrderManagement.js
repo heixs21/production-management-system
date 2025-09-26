@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 import ProductionReportModal from './ProductionReportModal';
+import FeatureGate from './FeatureGate';
 
 const OrderManagement = ({
   orders,
@@ -110,14 +111,16 @@ const OrderManagement = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">工单管理</h2>
         <div className="flex space-x-2">
-          {permissions.canUpdateWms && onUpdateWmsQuantities && (
-            <button
-              onClick={onUpdateWmsQuantities}
-              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
-            >
-              🔄 更新WMS数量
-            </button>
-          )}
+          <FeatureGate feature="wms">
+            {permissions.canUpdateWms && onUpdateWmsQuantities && (
+              <button
+                onClick={onUpdateWmsQuantities}
+                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+              >
+                🔄 更新WMS数量
+              </button>
+            )}
+          </FeatureGate>
           {permissions.canExport && onExportOrders && (
             <button
               onClick={onExportOrders}
@@ -229,7 +232,7 @@ const OrderManagement = ({
                   <th className="p-2 text-left">开始日期</th>
                   <th className="p-2 text-left">预计结束</th>
                   <th className="p-2 text-left">实际结束</th>
-                  <th className="p-2 text-left">入库数量</th>
+                  <th className="p-2 text-left">数量</th>
                   <th className="p-2 text-left">状态</th>
                   <th className="p-2 text-left">操作</th>
                 </tr>
@@ -258,12 +261,16 @@ const OrderManagement = ({
                         </span>
                       </td>
                       <td className="p-2 text-center">
-                        <span className="text-blue-600 font-medium">
-                          {order.reportedQuantity || 0}
-                        </span>
-                        <span className="text-gray-400 text-xs ml-1">
-                          / {order.quantity}
-                        </span>
+                        <FeatureGate feature="wms" fallback={
+                          <span className="text-gray-400">-</span>
+                        }>
+                          <span className="text-blue-600 font-medium">
+                            {order.reportedQuantity || 0}
+                          </span>
+                          <span className="text-gray-400 text-xs ml-1">
+                            / {order.quantity}
+                          </span>
+                        </FeatureGate>
                       </td>
                       <td className="p-2">
                         <span className="px-2 py-1 rounded-full text-xs font-medium text-green-600 bg-green-100">
@@ -412,7 +419,7 @@ const OrderManagement = ({
                         <th className="p-2 text-left">优先度</th>
                         <th className="p-2 text-left">开始日期</th>
                         <th className="p-2 text-left">预计结束日期</th>
-                        <th className="p-2 text-left">入库数量</th>
+                        <th className="p-2 text-left">数量</th>
                         <th className="p-2 text-left">工单状态</th>
                         <th className="p-2 text-left">操作</th>
                       </tr>
@@ -435,12 +442,16 @@ const OrderManagement = ({
                           <td className="p-2">{formatDateOnly(order.startDate)}</td>
                           <td className="p-2">{formatDateOnly(order.expectedEndDate)}</td>
                           <td className="p-2 text-center">
-                            <span className="text-blue-600 font-medium">
-                              {order.reportedQuantity || 0}
-                            </span>
-                            <span className="text-gray-400 text-xs ml-1">
-                              / {order.quantity}
-                            </span>
+                            <FeatureGate feature="wms" fallback={
+                              <span className="text-gray-400">-</span>
+                            }>
+                              <span className="text-blue-600 font-medium">
+                                {order.reportedQuantity || 0}
+                              </span>
+                              <span className="text-gray-400 text-xs ml-1">
+                                / {order.quantity}
+                              </span>
+                            </FeatureGate>
                           </td>
                           <td className="p-2">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'text-gray-600 bg-gray-100'}`}>
@@ -501,28 +512,32 @@ const OrderManagement = ({
                               >
                                 ✅
                               </button>
-                              {permissions.canRead && (
-                                <button
-                                  onClick={() => handleProductionReport(order)}
-                                  className="p-1 text-green-600 hover:bg-green-100 rounded"
-                                  title="产量上报"
-                                >
-                                  <BarChart3 className="w-4 h-4" />
-                                </button>
-                              )}
-                              {permissions.canSubmit && onSubmitWorkOrder && (
-                                <button
-                                  onClick={() => onSubmitWorkOrder(order)}
-                                  className={`p-1 rounded ${
-                                    order.isSubmitted 
-                                      ? 'text-gray-500 hover:bg-gray-100' 
-                                      : 'text-blue-600 hover:bg-blue-100'
-                                  }`}
-                                  title={order.isSubmitted ? '重新下达工单' : '下达工单'}
-                                >
-                                  {order.isSubmitted ? '🔄' : '📤'}
-                                </button>
-                              )}
+                              <FeatureGate feature="productionReport">
+                                {permissions.canRead && (
+                                  <button
+                                    onClick={() => handleProductionReport(order)}
+                                    className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                    title="产量上报"
+                                  >
+                                    <BarChart3 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </FeatureGate>
+                              <FeatureGate feature="mes">
+                                {permissions.canSubmit && onSubmitWorkOrder && (
+                                  <button
+                                    onClick={() => onSubmitWorkOrder(order)}
+                                    className={`p-1 rounded ${
+                                      order.isSubmitted 
+                                        ? 'text-gray-500 hover:bg-gray-100' 
+                                        : 'text-blue-600 hover:bg-blue-100'
+                                    }`}
+                                    title={order.isSubmitted ? '重新下达工单' : '下达工单'}
+                                  >
+                                    {order.isSubmitted ? '🔄' : '📤'}
+                                  </button>
+                                )}
+                              </FeatureGate>
                               {/* 预览按钮对所有用户可见 */}
                               <button
                                 onClick={() => onGenerateWorkOrderReport && onGenerateWorkOrderReport(order)}

@@ -28,14 +28,16 @@ const apiRequest = async (url, options = {}) => {
     });
 
     if (!response.ok) {
-      // 如果是401或403错误，清理本地存储并重定向到登录页
-      if (response.status === 401 || response.status === 403) {
+      // 如果是401错误，清理本地存储并重定向到登录页
+      if (response.status === 401) {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
         window.location.href = '/login';
         return;
       }
-      throw new Error(`HTTP error! status: ${response.status}`);
+      // 403错误不自动重定向，让组件处理
+      const errorText = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorText}`);
     }
 
     return await response.json();
@@ -125,11 +127,28 @@ export const workOrderApi = {
 
 // 认证API
 export const authApi = {
-  // 用户登录
-  login: (credentials) => apiRequest('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify(credentials),
-  }),
+  // 用户登录（不使用通用请求函数，避免自动重定向）
+  login: async (credentials) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || '登录失败');
+      }
+      
+      return data;
+    } catch (error) {
+      throw error;
+    }
+  },
   
   // 验证token
   verify: () => apiRequest('/auth/verify'),

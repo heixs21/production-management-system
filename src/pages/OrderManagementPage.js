@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Header from "../components/Header";
 import OrderManagement from "../components/OrderManagement";
+import FeatureGate from "../components/FeatureGate";
 import CurrentOrdersAnalysis from "../components/CurrentOrdersAnalysis";
 import DateRangeSelector from "../components/DateRangeSelector";
 import GanttChart from "../components/GanttChart";
@@ -611,7 +612,6 @@ const OrderManagementPage = () => {
           onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
           onResumeOrder={canPerformAction('order.resume') ? handleResumeOrder : null}
           onFinishOrder={handleFinishOrder}
-
           onSubmitWorkOrder={canPerformAction('order.submit') ? handleSubmitWorkOrder : null}
           onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
           onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}

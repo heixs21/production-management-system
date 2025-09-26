@@ -63,7 +63,7 @@ async function getOrderQuantity(mainCode) {
   try {
     const token = await ensureWmsAuth();
     if (!token) {
-      throw new Error('无法获取WMS认证');
+      return 0; // WMS认证失败时返回0
     }
 
     const params = new URLSearchParams({

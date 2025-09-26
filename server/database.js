@@ -109,30 +109,68 @@ async function initDatabase() {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
 
-    // 创建默认用户
+    // 添加公司字段（安全方式）
+    const addColumnSafely = async (table, column, definition) => {
+      try {
+        await connection.execute(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+      } catch (error) {
+        if (error.code !== 'ER_DUP_FIELDNAME') {
+          throw error;
+        }
+      }
+    };
+
+    await addColumnSafely('users', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    await addColumnSafely('users', 'companyName', 'VARCHAR(100) DEFAULT "和泰链运"');
+    await addColumnSafely('machines', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    await addColumnSafely('orders', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    await addColumnSafely('materials', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    await addColumnSafely('production_reports', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    await addColumnSafely('shifts', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+
+    // 创建默认用户 - 和泰链运
     const [existingAdmin] = await connection.execute('SELECT id FROM users WHERE username = ?', ['admin']);
     if (existingAdmin.length === 0) {
       await connection.execute(
-        'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
-        ['admin', 'admin123', 'admin', JSON.stringify(['all']), JSON.stringify(['all'])]
+        'INSERT INTO users (username, password, role, permissions, allowedMachines, companyId, companyName) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['admin', 'admin123', 'admin', JSON.stringify(['all']), JSON.stringify(['all']), 'hetai-logistics', '和泰链运']
       );
     }
 
     const [existingUser] = await connection.execute('SELECT id FROM users WHERE username = ?', ['user']);
     if (existingUser.length === 0) {
       await connection.execute(
-        'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
-        ['user', 'user123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board']), JSON.stringify(['all'])]
+        'INSERT INTO users (username, password, role, permissions, allowedMachines, companyId, companyName) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['user', 'user123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board']), JSON.stringify(['all']), 'hetai-logistics', '和泰链运']
       );
     }
 
     const [existingOperator] = await connection.execute('SELECT id FROM users WHERE username = ?', ['operator']);
     if (existingOperator.length === 0) {
       await connection.execute(
-        'INSERT INTO users (username, password, role, permissions, allowedMachines) VALUES (?, ?, ?, ?, ?)',
-        ['operator', 'op123', 'user', JSON.stringify(['orders.write', 'machines.read', 'board']), JSON.stringify(['all'])]
+        'INSERT INTO users (username, password, role, permissions, allowedMachines, companyId, companyName) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['operator', 'op123', 'user', JSON.stringify(['orders.write', 'machines.read', 'board']), JSON.stringify(['all']), 'hetai-logistics', '和泰链运']
       );
     }
+
+    // 创建和泰机电的初始管理员账户
+    const [existingMechAdmin] = await connection.execute('SELECT id FROM users WHERE username = ? AND companyId = ?', ['mech-admin', 'hetai-mechanical']);
+    if (existingMechAdmin.length === 0) {
+      await connection.execute(
+        'INSERT INTO users (username, password, role, permissions, allowedMachines, companyId, companyName) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['mech-admin', 'admin123', 'admin', JSON.stringify(['all']), JSON.stringify(['all']), 'hetai-mechanical', '和泰机电']
+      );
+    }
+
+    const [existingMechUser] = await connection.execute('SELECT id FROM users WHERE username = ? AND companyId = ?', ['mech-user', 'hetai-mechanical']);
+    if (existingMechUser.length === 0) {
+      await connection.execute(
+        'INSERT INTO users (username, password, role, permissions, allowedMachines, companyId, companyName) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        ['mech-user', 'admin123', 'user', JSON.stringify(['orders.read', 'machines.read', 'board']), JSON.stringify(['all']), 'hetai-mechanical', '和泰机电']
+      );
+    }
+
+
 
     // 为现有机台创建默认班次（只在不存在时创建）
     const [machines] = await connection.execute('SELECT id FROM machines');

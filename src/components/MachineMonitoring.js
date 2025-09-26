@@ -1,7 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Play, Square, RefreshCw, AlertCircle } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
+import { getCompanyConfig } from '../config/companies';
 
 const MachineMonitoring = () => {
+  const { user } = useAuth();
+  const companyConfig = getCompanyConfig(user?.companyId);
   const [workOrders, setWorkOrders] = useState([]);
   const [machines, setMachines] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -14,7 +18,12 @@ const MachineMonitoring = () => {
   // 获取机台数据
   const fetchMachines = async () => {
     try {
-      const response = await fetch(`${API_BASE}/api/machines`);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_BASE}/api/machines`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         setMachines(data || []);
@@ -26,6 +35,12 @@ const MachineMonitoring = () => {
 
   // 获取工单数据
   const fetchWorkOrders = async () => {
+    // 机电公司不显示MES工单数据
+    if (user?.companyId === 'hetai-mechanical') {
+      setWorkOrders([]);
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     try {
@@ -215,7 +230,11 @@ const MachineMonitoring = () => {
         {/* 工单列表 */}
         {!loading && !error && (
           <div className="p-4">
-            {Object.keys(groupedWorkOrders).length === 0 ? (
+            {user?.companyId === 'hetai-mechanical' ? (
+              <div className="text-center py-12 text-gray-500">
+                <p className="text-sm">机电公司不使用此页面，请使用工单管理功能</p>
+              </div>
+            ) : Object.keys(groupedWorkOrders).length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 暂无工单数据
               </div>

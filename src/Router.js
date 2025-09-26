@@ -11,9 +11,13 @@ import UserManagement from './components/UserManagement';
 
 // 受保护的路由组件
 const ProtectedRoute = ({ children, permission }) => {
-  const { isAuthenticated, hasPermission } = useAuth();
+  const { isAuthenticated, hasPermission, user, loading } = useAuth();
   
-  if (!isAuthenticated) {
+  if (loading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
+  
+  if (!isAuthenticated || !user) {
     return <Navigate to="/login" replace />;
   }
   
@@ -27,9 +31,9 @@ const ProtectedRoute = ({ children, permission }) => {
 
 // 登录路由组件
 const LoginRoute = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   
-  if (isAuthenticated) {
+  if (isAuthenticated && user) {
     return <Navigate to="/orders" replace />;
   }
   

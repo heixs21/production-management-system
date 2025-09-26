@@ -30,7 +30,7 @@ app.use('/api', require('./routes/materials'));
 app.use('/api', require('./routes/production'));
 app.use('/api', require('./routes/external'));
 
-// 定时更新WMS报工数量
+// 定时更新WMS报工数量（仅针对和泰链运）
 async function updateWmsQuantities() {
   try {
     const today = new Date().toISOString().split('T')[0];
@@ -39,9 +39,14 @@ async function updateWmsQuantities() {
        WHERE orderNo IS NOT NULL 
          AND actualEndDate IS NULL 
          AND isPaused = 0 
-         AND startDate <= ?`,
+         AND startDate <= ?
+         AND companyId = 'hetai-logistics'`,
       [today]
     );
+    
+    if (orders.length === 0) {
+      return; // 没有需要更新的工单
+    }
     
     for (const order of orders) {
       try {
@@ -51,11 +56,11 @@ async function updateWmsQuantities() {
           [quantity, order.id]
         );
       } catch (error) {
-        // 忽略单个工单的错误
+        // 静默忽略单个工单的错误
       }
     }
   } catch (error) {
-    console.error('❌ WMS数量更新任务失败:', error);
+    // 静默处理错误，不输出日志
   }
 }
 
@@ -66,13 +71,17 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 服务器运行在 http://0.0.0.0:${PORT}`);
   console.log(`💾 数据库: MySQL`);
   console.log(`👤 默认账户:`);
-  console.log(`   - admin/admin123 (管理员)`);
-  console.log(`   - user/user123 (只读)`);
-  console.log(`   - operator/op123 (操作员)`);
+  console.log(`   🚚 和泰链运:`);
+  console.log(`     - admin/admin123 (管理员)`);
+  console.log(`     - user/user123 (只读)`);
+  console.log(`     - operator/op123 (操作员)`);
+  console.log(`   ⚙️ 和泰机电:`);
+  console.log(`     - mech-admin/admin123 (管理员)`);
+  console.log(`     - mech-user/admin123 (用户)`);
   
-  // 启动定时任务
+  // 启动定时任务（仅针对和泰链运）
   setInterval(updateWmsQuantities, 5 * 60 * 1000);
-  setTimeout(updateWmsQuantities, 5000);
+  setTimeout(updateWmsQuantities, 5000); // 延迟10秒启动
 });
 
 process.on('SIGINT', async () => {

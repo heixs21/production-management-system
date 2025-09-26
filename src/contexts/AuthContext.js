@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/api';
+import { getErrorMessage } from '../utils/errorMessages';
 
 const AuthContext = createContext();
 
@@ -21,15 +22,23 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem('user');
     
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const userData = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(userData);
+        console.log('加载用户信息:', userData);
+      } catch (error) {
+        console.error('解析用户信息失败:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, companyId = 'hetai-logistics') => {
     try {
-      const data = await authApi.login({ username, password });
+      const data = await authApi.login({ username, password, companyId });
       
       setToken(data.token);
       setUser(data.user);
@@ -37,9 +46,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(data.user));
       return { success: true };
     } catch (error) {
-      // 清理旧的token和用户信息
-      logout();
-      return { success: false, error: error.message || '登录失败，请检查网络连接' };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
