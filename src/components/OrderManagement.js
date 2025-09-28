@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 import ProductionReportModal from './ProductionReportModal';
 import FeatureGate from './FeatureGate';
@@ -25,6 +25,8 @@ const OrderManagement = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
   const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
+  const [mesWorkOrders, setMesWorkOrders] = useState([]);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
   // 使用外部传入的分组状态
   const itemsPerPage = 10;
   
@@ -106,11 +108,107 @@ const OrderManagement = ({
     setProductionReportModal({ isOpen: false, order: null });
   };
 
+  // 获取MES工单数据
+  const fetchMesWorkOrders = async () => {
+    try {
+      const API_BASE = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${API_BASE}/api/mes/workOrders`);
+      if (response.ok) {
+        const data = await response.json();
+        setMesWorkOrders(data || []);
+      }
+    } catch (err) {
+      console.error('获取MES工单数据失败:', err);
+    }
+  };
+
+  // 检查工单是否已下达
+  const isOrderSubmitted = (orderNo) => {
+    return mesWorkOrders.some(mesOrder => mesOrder.orderId === orderNo);
+  };
+
+  // 一键下达当前分组的未下达工单
+  const handleBatchSubmit = async () => {
+    const unsubmittedOrders = filteredActiveOrders.filter(order => !isOrderSubmitted(order.orderNo));
+    
+    if (unsubmittedOrders.length === 0) {
+      alert('当前分组没有未下达的工单');
+      return;
+    }
+    
+    if (!window.confirm(`确定要下达 ${unsubmittedOrders.length} 个工单吗？`)) {
+      return;
+    }
+    
+    setBatchSubmitting(true);
+    
+    for (let i = 0; i < unsubmittedOrders.length; i++) {
+      const order = unsubmittedOrders[i];
+      try {
+        // 直接调用API下达工单
+        const workOrderData = {
+          orderNo: order.orderNo,
+          materialNo: order.materialNo,
+          materialName: order.materialName,
+          quantity: order.quantity,
+          machine: order.machine,
+          startDate: order.startDate,
+          expectedEndDate: order.expectedEndDate
+        };
+        
+        const API_BASE = `http://${window.location.hostname}:12454`;
+        const response = await fetch(`${API_BASE}/api/mes/submit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(workOrderData)
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        console.log(`工单 ${order.orderNo} 下达成功`);
+        
+        // 延迟1-2秒
+        if (i < unsubmittedOrders.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      } catch (error) {
+        console.error(`工单 ${order.orderNo} 下达失败:`, error);
+        alert(`工单 ${order.orderNo} 下达失败: ${error.message}`);
+        break;
+      }
+    }
+    
+    setBatchSubmitting(false);
+    // 刷新MES工单数据
+    await fetchMesWorkOrders();
+    alert('批量下达完成！');
+  };
+
+  useEffect(() => {
+    fetchMesWorkOrders();
+  }, []);
+
   return (
     <div className="p-4 border-b">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">工单管理</h2>
         <div className="flex space-x-2">
+          <FeatureGate feature="mes">
+            {permissions.canSubmit && onSubmitWorkOrder && activeTab === 'current' && (
+              <button
+                onClick={handleBatchSubmit}
+                disabled={batchSubmitting}
+                className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 flex items-center disabled:opacity-50"
+              >
+                <Send className="w-4 h-4 mr-1" />
+                {batchSubmitting ? '下达中...' : '一键下达'}
+              </button>
+            )}
+          </FeatureGate>
           <FeatureGate feature="wms">
             {permissions.canUpdateWms && onUpdateWmsQuantities && (
               <button
@@ -528,13 +626,13 @@ const OrderManagement = ({
                                   <button
                                     onClick={() => onSubmitWorkOrder(order)}
                                     className={`p-1 rounded ${
-                                      order.isSubmitted 
-                                        ? 'text-gray-500 hover:bg-gray-100' 
+                                      isOrderSubmitted(order.orderNo)
+                                        ? 'text-green-600 hover:bg-green-100' 
                                         : 'text-blue-600 hover:bg-blue-100'
                                     }`}
-                                    title={order.isSubmitted ? '重新下达工单' : '下达工单'}
+                                    title={isOrderSubmitted(order.orderNo) ? '已下达' : '下达工单'}
                                   >
-                                    {order.isSubmitted ? '🔄' : '📤'}
+                                    {isOrderSubmitted(order.orderNo) ? '✅' : '📤'}
                                   </button>
                                 )}
                               </FeatureGate>

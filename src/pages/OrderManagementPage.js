@@ -332,11 +332,6 @@ const OrderManagementPage = () => {
       setSubmitLoading(true);
       await workOrderApi.submit(workOrderData);
       
-      await updateOrder({
-        ...submittingOrder,
-        isSubmitted: true
-      });
-      
       setShowSubmitWorkOrderModal(false);
       setSubmittingOrder(null);
       alert('工单下达成功！');
@@ -345,7 +340,7 @@ const OrderManagementPage = () => {
     } finally {
       setSubmitLoading(false);
     }
-  }, [submittingOrder, updateOrder]);
+  }, [submittingOrder]);
 
   // 生成工序报工单处理函数
   const handleGenerateWorkOrderReport = useCallback(async (order) => {
