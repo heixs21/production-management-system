@@ -327,6 +327,21 @@ const OrderManagementPage = () => {
     setShowSubmitWorkOrderModal(true);
   }, []);
 
+  // 批量下达工单处理函数（不打开模态框）
+  const handleBatchSubmitWorkOrder = useCallback(async (order) => {
+    const workOrderData = {
+      orderNo: order.orderNo,
+      materialNo: order.materialNo,
+      materialName: order.materialName,
+      quantity: order.quantity,
+      machine: order.machine,
+      startDate: order.startDate,
+      expectedEndDate: order.expectedEndDate
+    };
+    
+    await workOrderApi.submit(workOrderData);
+  }, []);
+
   const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
     try {
       setSubmitLoading(true);
@@ -614,6 +629,7 @@ const OrderManagementPage = () => {
           onResumeOrder={canPerformAction('order.resume') ? handleResumeOrder : null}
           onFinishOrder={handleFinishOrder}
           onSubmitWorkOrder={canPerformAction('order.submit') ? handleSubmitWorkOrder : null}
+          onBatchSubmitWorkOrder={canPerformAction('order.submit') ? handleBatchSubmitWorkOrder : null}
           onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
           onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}
           onGenerateWorkOrderReport={handleGenerateWorkOrderReport}

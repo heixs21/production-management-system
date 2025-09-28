@@ -15,6 +15,7 @@ const OrderManagement = ({
   onResumeOrder,
   onFinishOrder,
   onSubmitWorkOrder,
+  onBatchSubmitWorkOrder,
   onExportOrders,
   onUpdateWmsQuantities,
   onGenerateWorkOrderReport,
@@ -129,6 +130,8 @@ const OrderManagement = ({
 
   // 一键下达当前分组的未下达工单
   const handleBatchSubmit = async () => {
+    if (!onBatchSubmitWorkOrder) return;
+    
     const unsubmittedOrders = filteredActiveOrders.filter(order => !isOrderSubmitted(order.orderNo));
     
     if (unsubmittedOrders.length === 0) {
@@ -145,30 +148,8 @@ const OrderManagement = ({
     for (let i = 0; i < unsubmittedOrders.length; i++) {
       const order = unsubmittedOrders[i];
       try {
-        // 直接调用API下达工单
-        const workOrderData = {
-          orderNo: order.orderNo,
-          materialNo: order.materialNo,
-          materialName: order.materialName,
-          quantity: order.quantity,
-          machine: order.machine,
-          startDate: order.startDate,
-          expectedEndDate: order.expectedEndDate
-        };
-        
-        const API_BASE = `http://${window.location.hostname}:12454`;
-        const response = await fetch(`${API_BASE}/api/mes/submit`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(workOrderData)
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
+        // 使用专门的批量下达函数
+        await onBatchSubmitWorkOrder(order);
         console.log(`工单 ${order.orderNo} 下达成功`);
         
         // 延迟1-2秒
@@ -198,7 +179,7 @@ const OrderManagement = ({
         <h2 className="text-lg font-semibold">工单管理</h2>
         <div className="flex space-x-2">
           <FeatureGate feature="mes">
-            {permissions.canSubmit && onSubmitWorkOrder && activeTab === 'current' && (
+            {permissions.canSubmit && onBatchSubmitWorkOrder && activeTab === 'current' && (
               <button
                 onClick={handleBatchSubmit}
                 disabled={batchSubmitting}

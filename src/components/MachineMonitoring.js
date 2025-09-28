@@ -239,7 +239,9 @@ const MachineMonitoring = () => {
                 暂无工单数据
               </div>
             ) : (
-              Object.entries(groupedWorkOrders).map(([groupKey, group]) => (
+              Object.entries(groupedWorkOrders)
+                .sort(([, a], [, b]) => a.machineName.localeCompare(b.machineName))
+                .map(([groupKey, group]) => (
                 <div key={groupKey} className="mb-6">
                   {/* 机台标题 */}
                   <div className="flex items-center mb-3 p-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500">
@@ -297,18 +299,32 @@ const MachineMonitoring = () => {
                             <td className="px-4 py-3 text-center">
                               <div className="flex justify-center space-x-2">
                                 {order.status === '0' ? (
-                                  <button
-                                    onClick={() => startWorkOrder(order.orderId)}
-                                    disabled={operationLoading[order.orderId] === 'starting'}
-                                    className="flex items-center px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
-                                  >
-                                    {operationLoading[order.orderId] === 'starting' ? (
-                                      <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-                                    ) : (
-                                      <Play className="w-3 h-3 mr-1" />
-                                    )}
-                                    开始
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => startWorkOrder(order.orderId)}
+                                      disabled={operationLoading[order.orderId] === 'starting'}
+                                      className="flex items-center px-3 py-1 bg-green-600 text-white rounded text-xs hover:bg-green-700 disabled:opacity-50"
+                                    >
+                                      {operationLoading[order.orderId] === 'starting' ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Play className="w-3 h-3 mr-1" />
+                                      )}
+                                      开始
+                                    </button>
+                                    <button
+                                      onClick={() => cancelWorkOrder(order.id)}
+                                      disabled={operationLoading[order.id] === 'canceling'}
+                                      className="flex items-center px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                      {operationLoading[order.id] === 'canceling' ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Square className="w-3 h-3 mr-1" />
+                                      )}
+                                      删除
+                                    </button>
+                                  </>
                                 ) : (
                                   <button
                                     onClick={() => cancelWorkOrder(order.id)}
