@@ -1,5 +1,32 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { authApi } from '../services/api';
+import { getErrorMessage } from '../utils/errorMessages';
+
+// 全局强制退出功能
+window.forceLogout = () => {
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  localStorage.removeItem('selectedCompany');
+  window.location.href = '/login';
+};
+
+// 全局API错误处理
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  try {
+    const response = await originalFetch(...args);
+    
+    // 检查是否为401或403错误，但不读取body
+    if ((response.status === 401 || response.status === 403) && args[0].includes('/auth/login')) {
+      // 对于登录请求，不进行拦截处理
+      return response;
+    }
+    
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
 
 const AuthContext = createContext();
 
@@ -21,15 +48,34 @@ export const AuthProvider = ({ children }) => {
     const storedUser = localStorage.getItem('user');
     
     if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
+      try {
+        const userData = JSON.parse(storedUser);
+        setToken(storedToken);
+        setUser(userData);
+        console.log('加载用户信息:', userData);
+      } catch (error) {
+        console.error('解析用户信息失败:', error);
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+      }
     }
     setLoading(false);
+    
+    // 添加全局键盘快捷键：Ctrl+Shift+L 强制退出
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'L') {
+        e.preventDefault();
+        window.forceLogout();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, companyId = 'hetai-logistics') => {
     try {
-      const data = await authApi.login({ username, password });
+      const data = await authApi.login({ username, password, companyId });
       
       setToken(data.token);
       setUser(data.user);
@@ -37,7 +83,7 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem('user', JSON.stringify(data.user));
       return { success: true };
     } catch (error) {
-      return { success: false, error: error.message || '登录失败，请检查网络连接' };
+      return { success: false, error: getErrorMessage(error) };
     }
   };
 
@@ -55,7 +101,10 @@ export const AuthProvider = ({ children }) => {
     // 默认权限：所有用户都可以访问生产看板
     if (permission === 'board') return true;
     
-    return user.permissions && (user.permissions.includes('all') || user.permissions.includes(permission));
+    // 检查用户权限
+    if (!user.permissions) return false;
+    
+    return user.permissions.includes('all') || user.permissions.includes(permission);
   };
 
   // 检查具体操作权限
@@ -77,6 +126,10 @@ export const AuthProvider = ({ children }) => {
       'order.import': ['orders.write', 'orders.all'],
       'order.export': ['orders.read', 'orders.write', 'orders.all'],
       'order.report': ['orders.write', 'orders.all'],
+      'order.write': ['orders.write', 'orders.all'],
+      
+      // 基础读取权限
+      'orders.read': ['orders.read', 'orders.write', 'orders.all'],
       
       // 甘特图权限
       'gantt.view': ['orders.read', 'orders.write', 'orders.all'],

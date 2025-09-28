@@ -1,17 +1,21 @@
-import React, { useState, useMemo } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
+import ProductionReportModal from './ProductionReportModal';
+import FeatureGate from './FeatureGate';
 
 const OrderManagement = ({
   orders,
   machines = [],
+  selectedGroup,
+  onGroupChange,
   onEditOrder,
   onDeleteOrder,
   onPauseOrder,
   onResumeOrder,
   onFinishOrder,
-  onDelayOrder,
   onSubmitWorkOrder,
+  onBatchSubmitWorkOrder,
   onExportOrders,
   onUpdateWmsQuantities,
   onGenerateWorkOrderReport,
@@ -21,7 +25,10 @@ const OrderManagement = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
-  const [selectedGroup, setSelectedGroup] = useState('all');
+  const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
+  const [mesWorkOrders, setMesWorkOrders] = useState([]);
+  const [batchSubmitting, setBatchSubmitting] = useState(false);
+  // 使用外部传入的分组状态
   const itemsPerPage = 10;
   
   const statusColors = getStatusColors();
@@ -94,19 +101,105 @@ const OrderManagement = ({
     setCollapsedMachines(newCollapsed);
   };
 
+  const handleProductionReport = (order) => {
+    setProductionReportModal({ isOpen: true, order });
+  };
+
+  const handleCloseProductionReport = () => {
+    setProductionReportModal({ isOpen: false, order: null });
+  };
+
+  // 获取MES工单数据
+  const fetchMesWorkOrders = async () => {
+    try {
+      const API_BASE = `http://${window.location.hostname}:12454`;
+      const response = await fetch(`${API_BASE}/api/mes/workOrders`);
+      if (response.ok) {
+        const data = await response.json();
+        setMesWorkOrders(data || []);
+      }
+    } catch (err) {
+      console.error('获取MES工单数据失败:', err);
+    }
+  };
+
+  // 检查工单是否已下达
+  const isOrderSubmitted = (orderNo) => {
+    return mesWorkOrders.some(mesOrder => mesOrder.orderId === orderNo);
+  };
+
+  // 一键下达当前分组的未下达工单
+  const handleBatchSubmit = async () => {
+    if (!onBatchSubmitWorkOrder) return;
+    
+    const unsubmittedOrders = filteredActiveOrders.filter(order => !isOrderSubmitted(order.orderNo));
+    
+    if (unsubmittedOrders.length === 0) {
+      alert('当前分组没有未下达的工单');
+      return;
+    }
+    
+    if (!window.confirm(`确定要下达 ${unsubmittedOrders.length} 个工单吗？`)) {
+      return;
+    }
+    
+    setBatchSubmitting(true);
+    
+    for (let i = 0; i < unsubmittedOrders.length; i++) {
+      const order = unsubmittedOrders[i];
+      try {
+        // 使用专门的批量下达函数
+        await onBatchSubmitWorkOrder(order);
+        console.log(`工单 ${order.orderNo} 下达成功`);
+        
+        // 延迟1-2秒
+        if (i < unsubmittedOrders.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      } catch (error) {
+        console.error(`工单 ${order.orderNo} 下达失败:`, error);
+        alert(`工单 ${order.orderNo} 下达失败: ${error.message}`);
+        break;
+      }
+    }
+    
+    setBatchSubmitting(false);
+    // 刷新MES工单数据
+    await fetchMesWorkOrders();
+    alert('批量下达完成！');
+  };
+
+  useEffect(() => {
+    fetchMesWorkOrders();
+  }, []);
+
   return (
     <div className="p-4 border-b">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">工单管理</h2>
         <div className="flex space-x-2">
-          {permissions.canUpdateWms && onUpdateWmsQuantities && (
-            <button
-              onClick={onUpdateWmsQuantities}
-              className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
-            >
-              🔄 更新WMS数量
-            </button>
-          )}
+          <FeatureGate feature="mes">
+            {permissions.canSubmit && onBatchSubmitWorkOrder && activeTab === 'current' && (
+              <button
+                onClick={handleBatchSubmit}
+                disabled={batchSubmitting}
+                className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 flex items-center disabled:opacity-50"
+              >
+                <Send className="w-4 h-4 mr-1" />
+                {batchSubmitting ? '下达中...' : '一键下达'}
+              </button>
+            )}
+          </FeatureGate>
+          <FeatureGate feature="wms">
+            {permissions.canUpdateWms && onUpdateWmsQuantities && (
+              <button
+                onClick={onUpdateWmsQuantities}
+                className="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center"
+              >
+                🔄 更新WMS数量
+              </button>
+            )}
+          </FeatureGate>
           {permissions.canExport && onExportOrders && (
             <button
               onClick={onExportOrders}
@@ -148,7 +241,7 @@ const OrderManagement = ({
         <div className="mb-4">
           <div className="flex flex-wrap gap-2">
             <button
-              onClick={() => setSelectedGroup('all')}
+              onClick={() => onGroupChange('all')}
               className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                 selectedGroup === 'all'
                   ? 'bg-blue-600 text-white shadow-md'
@@ -162,7 +255,7 @@ const OrderManagement = ({
               return (
                 <button
                   key={group}
-                  onClick={() => setSelectedGroup(group)}
+                  onClick={() => onGroupChange(group)}
                   className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
                     selectedGroup === group
                       ? 'bg-indigo-600 text-white shadow-md'
@@ -218,7 +311,7 @@ const OrderManagement = ({
                   <th className="p-2 text-left">开始日期</th>
                   <th className="p-2 text-left">预计结束</th>
                   <th className="p-2 text-left">实际结束</th>
-                  <th className="p-2 text-left">入库数量</th>
+                  <th className="p-2 text-left">数量</th>
                   <th className="p-2 text-left">状态</th>
                   <th className="p-2 text-left">操作</th>
                 </tr>
@@ -247,12 +340,16 @@ const OrderManagement = ({
                         </span>
                       </td>
                       <td className="p-2 text-center">
-                        <span className="text-blue-600 font-medium">
-                          {order.reportedQuantity || 0}
-                        </span>
-                        <span className="text-gray-400 text-xs ml-1">
-                          / {order.quantity}
-                        </span>
+                        <FeatureGate feature="wms" fallback={
+                          <span className="text-gray-400">-</span>
+                        }>
+                          <span className="text-blue-600 font-medium">
+                            {order.reportedQuantity || 0}
+                          </span>
+                          <span className="text-gray-400 text-xs ml-1">
+                            / {order.quantity}
+                          </span>
+                        </FeatureGate>
                       </td>
                       <td className="p-2">
                         <span className="px-2 py-1 rounded-full text-xs font-medium text-green-600 bg-green-100">
@@ -401,7 +498,7 @@ const OrderManagement = ({
                         <th className="p-2 text-left">优先度</th>
                         <th className="p-2 text-left">开始日期</th>
                         <th className="p-2 text-left">预计结束日期</th>
-                        <th className="p-2 text-left">入库数量</th>
+                        <th className="p-2 text-left">数量</th>
                         <th className="p-2 text-left">工单状态</th>
                         <th className="p-2 text-left">操作</th>
                       </tr>
@@ -424,12 +521,16 @@ const OrderManagement = ({
                           <td className="p-2">{formatDateOnly(order.startDate)}</td>
                           <td className="p-2">{formatDateOnly(order.expectedEndDate)}</td>
                           <td className="p-2 text-center">
-                            <span className="text-blue-600 font-medium">
-                              {order.reportedQuantity || 0}
-                            </span>
-                            <span className="text-gray-400 text-xs ml-1">
-                              / {order.quantity}
-                            </span>
+                            <FeatureGate feature="wms" fallback={
+                              <span className="text-gray-400">-</span>
+                            }>
+                              <span className="text-blue-600 font-medium">
+                                {order.reportedQuantity || 0}
+                              </span>
+                              <span className="text-gray-400 text-xs ml-1">
+                                / {order.quantity}
+                              </span>
+                            </FeatureGate>
                           </td>
                           <td className="p-2">
                             <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[order.status] || 'text-gray-600 bg-gray-100'}`}>
@@ -490,28 +591,33 @@ const OrderManagement = ({
                               >
                                 ✅
                               </button>
-                              {permissions.canDelay && onDelayOrder && (
-                                <button
-                                  onClick={() => onDelayOrder(order)}
-                                  className="p-1 text-orange-600 hover:bg-orange-100 rounded"
-                                  title="设置延期预计结束日期"
-                                >
-                                  ⏰
-                                </button>
-                              )}
-                              {permissions.canSubmit && onSubmitWorkOrder && (
-                                <button
-                                  onClick={() => onSubmitWorkOrder(order)}
-                                  className={`p-1 rounded ${
-                                    order.isSubmitted 
-                                      ? 'text-gray-500 hover:bg-gray-100' 
-                                      : 'text-blue-600 hover:bg-blue-100'
-                                  }`}
-                                  title={order.isSubmitted ? '重新下达工单' : '下达工单'}
-                                >
-                                  {order.isSubmitted ? '🔄' : '📤'}
-                                </button>
-                              )}
+                              <FeatureGate feature="productionReport">
+                                {permissions.canRead && (
+                                  <button
+                                    onClick={() => handleProductionReport(order)}
+                                    className="p-1 text-green-600 hover:bg-green-100 rounded"
+                                    title="产量上报"
+                                  >
+                                    <BarChart3 className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </FeatureGate>
+                              <FeatureGate feature="mes">
+                                {permissions.canSubmit && onSubmitWorkOrder && (
+                                  <button
+                                    onClick={isOrderSubmitted(order.orderNo) ? undefined : () => onSubmitWorkOrder(order)}
+                                    disabled={isOrderSubmitted(order.orderNo)}
+                                    className={`p-1 rounded ${
+                                      isOrderSubmitted(order.orderNo)
+                                        ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
+                                        : 'text-blue-600 hover:bg-blue-100'
+                                    }`}
+                                    title={isOrderSubmitted(order.orderNo) ? '已下达' : '下达工单'}
+                                  >
+                                    {isOrderSubmitted(order.orderNo) ? '🔒' : '📤'}
+                                  </button>
+                                )}
+                              </FeatureGate>
                               {/* 预览按钮对所有用户可见 */}
                               <button
                                 onClick={() => onGenerateWorkOrderReport && onGenerateWorkOrderReport(order)}
@@ -539,6 +645,17 @@ const OrderManagement = ({
           })()}
         </div>
       )}
+      
+      {/* 产量上报弹窗 */}
+      <ProductionReportModal
+        isOpen={productionReportModal.isOpen}
+        onClose={handleCloseProductionReport}
+        order={productionReportModal.order}
+        onSave={() => {
+          // 可以在这里刷新数据或执行其他操作
+          console.log('产量上报保存成功');
+        }}
+      />
     </div>
   );
 };

@@ -11,13 +11,42 @@ const GanttChart = ({
   onDrop,
   onReportWork,
   onExportGantt,
+  onUndoLastDrag,
+  lastDragOperation,
   canDrag = true,
   canReport = true,
-  canExport = true
+  canExport = true,
+  selectedGroup = 'all'
 }) => {
   const colors = getPriorityColors();
   const [zoomLevel, setZoomLevel] = useState(100); // 缩放比例，100为默认
   const scrollContainerRef = useRef(null);
+  
+  // 获取机台组信息
+  const machineGroups = React.useMemo(() => {
+    const groups = new Set();
+    machines.forEach(machine => {
+      if (machine.machineGroup) {
+        groups.add(machine.machineGroup);
+      }
+    });
+    return Array.from(groups);
+  }, [machines]);
+  
+  // 根据选中的组过滤机台，并隐藏没有工单的机台
+  const filteredMachines = React.useMemo(() => {
+    let filtered = machines;
+    
+    // 按机台组过滤
+    if (selectedGroup !== 'all') {
+      filtered = machines.filter(machine => machine.machineGroup === selectedGroup);
+    }
+    
+    // 只显示有工单的机台
+    return filtered.filter(machine => 
+      orders.some(order => order.machine === machine.name && !order.actualEndDate)
+    );
+  }, [machines, selectedGroup, orders]);
   
   // 自动滚动到今天
   useEffect(() => {
@@ -49,6 +78,7 @@ const GanttChart = ({
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">甘特图视图</h2>
         <div className="flex items-center space-x-3">
+
           {/* 缩放控制 */}
           <div className="flex items-center space-x-2">
             <button
@@ -78,6 +108,15 @@ const GanttChart = ({
               +
             </button>
           </div>
+          {canDrag && onUndoLastDrag && lastDragOperation && (
+            <button
+              onClick={onUndoLastDrag}
+              className="px-3 py-1 bg-orange-600 text-white rounded text-sm hover:bg-orange-700 flex items-center"
+              title="撤销上一次拖拽操作"
+            >
+              ↶ 撤销
+            </button>
+          )}
           {canExport && onExportGantt && (
             <button
               onClick={onExportGantt}
@@ -125,7 +164,7 @@ const GanttChart = ({
 
           {/* 机台行 */}
           <div className="divide-y">
-            {machines.map((machine, machineIndex) => (
+            {filteredMachines.map((machine, machineIndex) => (
               <div key={machine.id} className="flex">
                 {/* 机台名称 */}
                 <div className="w-32 p-3 bg-gray-50 border-r font-medium text-gray-700 sticky left-0 z-10 flex items-center" style={{minWidth: '128px', maxWidth: '128px'}}>

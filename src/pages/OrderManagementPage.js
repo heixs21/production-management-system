@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import Header from "../components/Header";
 import OrderManagement from "../components/OrderManagement";
+import FeatureGate from "../components/FeatureGate";
 import CurrentOrdersAnalysis from "../components/CurrentOrdersAnalysis";
 import DateRangeSelector from "../components/DateRangeSelector";
 import GanttChart from "../components/GanttChart";
@@ -16,7 +17,7 @@ import {
   ReportWorkModal,
   MaterialModal,
   FinishOrderModal,
-  DelayOrderModal,
+
   SubmitWorkOrderModal
 } from "../components/Modals";
 
@@ -71,6 +72,8 @@ const OrderManagementPage = () => {
   const loading = ordersLoading || machinesLoading || materialsLoading;
   const error = ordersError || machinesError || materialsError;
   const [draggedOrder, setDraggedOrder] = useState(null);
+  const [lastDragOperation, setLastDragOperation] = useState(null);
+  const [selectedMachineGroup, setSelectedMachineGroup] = useState('all');
 
   // 弹窗状态
   const [showAddForm, setShowAddForm] = useState(false);
@@ -80,8 +83,7 @@ const OrderManagementPage = () => {
   const [showReportWorkModal, setShowReportWorkModal] = useState(false);
   const [showFinishOrderModal, setShowFinishOrderModal] = useState(false);
   const [finishingOrder, setFinishingOrder] = useState(null);
-  const [showDelayOrderModal, setShowDelayOrderModal] = useState(false);
-  const [delayingOrder, setDelayingOrder] = useState(null);
+
   const [showSubmitWorkOrderModal, setShowSubmitWorkOrderModal] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(null);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -147,6 +149,10 @@ const OrderManagementPage = () => {
           start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
           end = new Date(now.getFullYear(), now.getMonth(), 0);
           break;
+        case 'nextMonth':
+          start = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+          end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+          break;
         case 'thisYear':
           start = new Date(now.getFullYear(), 0, 1);
           end = new Date(now.getFullYear(), 11, 31);
@@ -165,10 +171,16 @@ const OrderManagementPage = () => {
       }
 
       const dates = [];
-      const current = new Date(start);
-      while (current <= end) {
-        dates.push(current.toISOString().split('T')[0]);
-        current.setDate(current.getDate() + 1);
+      // 使用UTC日期避免时区问题
+      const current = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+      const endUTC = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+      
+      while (current.getTime() <= endUTC.getTime()) {
+        const year = current.getUTCFullYear();
+        const month = String(current.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(current.getUTCDate()).padStart(2, '0');
+        dates.push(`${year}-${month}-${day}`);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
       
       return dates;
@@ -307,24 +319,7 @@ const OrderManagementPage = () => {
     }
   }, [finishingOrder, updateOrder]);
 
-  // 延期工单处理函数
-  const handleDelayOrder = useCallback((order) => {
-    setDelayingOrder(order);
-    setShowDelayOrderModal(true);
-  }, []);
 
-  const handleConfirmDelayOrder = useCallback(async (delayData) => {
-    try {
-      await updateOrder({
-        ...delayingOrder,
-        ...delayData
-      });
-      setShowDelayOrderModal(false);
-      setDelayingOrder(null);
-    } catch (err) {
-      alert(`设置延期失败: ${err.message}`);
-    }
-  }, [delayingOrder, updateOrder]);
 
   // 下达工单处理函数
   const handleSubmitWorkOrder = useCallback((order) => {
@@ -332,15 +327,35 @@ const OrderManagementPage = () => {
     setShowSubmitWorkOrderModal(true);
   }, []);
 
+  // 批量下达工单处理函数（不打开模态框）
+  const handleBatchSubmitWorkOrder = useCallback(async (order) => {
+    const machine = machines.find(m => m.name === order.machine);
+    // 从组件描述中提取第一个组件物料号
+    let firstComponentMatnr = '';
+    if (order.componentDescription) {
+      const match = order.componentDescription.match(/^([^:]+)/);
+      if (match) {
+        firstComponentMatnr = match[1].trim();
+      }
+    }
+    
+    const workOrderData = {
+      orderId: order.orderNo,
+      materialId: firstComponentMatnr || order.orderComponent || '',
+      nextmaterialId: order.materialNo || '',
+      quantity: order.quantity,
+      equipment: machine?.lineCode || '',
+      priority: order.priority || 1,
+      radio: 0
+    };
+    
+    await workOrderApi.submit(workOrderData);
+  }, [machines]);
+
   const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
     try {
       setSubmitLoading(true);
       await workOrderApi.submit(workOrderData);
-      
-      await updateOrder({
-        ...submittingOrder,
-        isSubmitted: true
-      });
       
       setShowSubmitWorkOrderModal(false);
       setSubmittingOrder(null);
@@ -350,7 +365,7 @@ const OrderManagementPage = () => {
     } finally {
       setSubmitLoading(false);
     }
-  }, [submittingOrder, updateOrder]);
+  }, [submittingOrder]);
 
   // 生成工序报工单处理函数
   const handleGenerateWorkOrderReport = useCallback(async (order) => {
@@ -468,6 +483,18 @@ const OrderManagementPage = () => {
     }
   }, [importMaterials]);
 
+  // 撤销上一次拖拽操作
+  const handleUndoLastDrag = useCallback(async () => {
+    if (!lastDragOperation) return;
+    
+    try {
+      await updateOrder(lastDragOperation.original);
+      setLastDragOperation(null);
+    } catch (err) {
+      alert(`撤销失败: ${err.message}`);
+    }
+  }, [lastDragOperation, updateOrder]);
+
   // 自定义日期处理
   const handleCustomDateChange = useCallback((startDate, endDate) => {
     setCustomStartDate(startDate);
@@ -558,6 +585,9 @@ const OrderManagementPage = () => {
     e.preventDefault();
     if (!draggedOrder) return;
 
+    // 保存原始状态用于撤销
+    const originalOrder = { ...draggedOrder };
+
     const orderDuration = new Date(draggedOrder.expectedEndDate || draggedOrder.startDate) - new Date(draggedOrder.startDate);
     const newStartDate = new Date(dateRange[targetDateIndex]);
     const newEndDate = new Date(newStartDate.getTime() + orderDuration);
@@ -568,6 +598,13 @@ const OrderManagementPage = () => {
       startDate: newStartDate.toISOString().split("T")[0],
       expectedEndDate: newEndDate.toISOString().split("T")[0],
     };
+
+    // 保存撤销信息
+    setLastDragOperation({
+      original: originalOrder,
+      updated: updatedOrder,
+      timestamp: Date.now()
+    });
 
     updateOrder(updatedOrder);
     setDraggedOrder(null);
@@ -594,13 +631,15 @@ const OrderManagementPage = () => {
         <OrderManagement
           orders={orders}
           machines={machines}
+          selectedGroup={selectedMachineGroup}
+          onGroupChange={setSelectedMachineGroup}
           onEditOrder={canPerformAction('order.edit') ? handleEditOrder : null}
           onDeleteOrder={canPerformAction('order.delete') ? handleDeleteOrder : null}
           onPauseOrder={canPerformAction('order.pause') ? handlePauseOrder : null}
           onResumeOrder={canPerformAction('order.resume') ? handleResumeOrder : null}
           onFinishOrder={handleFinishOrder}
-          onDelayOrder={canPerformAction('order.delay') ? handleDelayOrder : null}
           onSubmitWorkOrder={canPerformAction('order.submit') ? handleSubmitWorkOrder : null}
+          onBatchSubmitWorkOrder={canPerformAction('order.submit') ? handleBatchSubmitWorkOrder : null}
           onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
           onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}
           onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
@@ -610,11 +649,12 @@ const OrderManagementPage = () => {
             canPause: canPerformAction('order.pause'),
             canResume: canPerformAction('order.resume'),
             canFinish: true,
-            canDelay: canPerformAction('order.delay'),
+
             canSubmit: canPerformAction('order.submit'),
             canExport: canPerformAction('order.export'),
             canUpdateWms: canPerformAction('wms.update'),
-            canReport: true
+            canReport: true,
+            canRead: canPerformAction('orders.read')
           }}
         />
 
@@ -636,11 +676,14 @@ const OrderManagementPage = () => {
             orders={orders}
             dateRange={dateRange}
             draggedOrder={draggedOrder}
+            selectedGroup={selectedMachineGroup}
             onDragStart={canPerformAction('gantt.drag') ? handleDragStart : null}
             onDragOver={canPerformAction('gantt.drag') ? handleDragOver : null}
             onDrop={canPerformAction('gantt.drag') ? handleDrop : null}
             onReportWork={canPerformAction('order.report') ? handleReportWork : null}
             onExportGantt={canPerformAction('gantt.export') ? handleExportGantt : null}
+            onUndoLastDrag={canPerformAction('gantt.drag') ? handleUndoLastDrag : null}
+            lastDragOperation={lastDragOperation}
             canDrag={canPerformAction('gantt.drag')}
             canReport={canPerformAction('order.report')}
             canExport={canPerformAction('gantt.export')}
@@ -678,6 +721,7 @@ const OrderManagementPage = () => {
         isEditing={false}
         orderData={newOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setNewOrder}
         onSave={handleAddOrder}
         onClose={() => setShowAddForm(false)}
@@ -688,6 +732,7 @@ const OrderManagementPage = () => {
         isEditing={true}
         orderData={editingOrder || newOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setEditingOrder}
         onSave={handleSaveOrder}
         onClose={() => setEditingOrder(null)}
@@ -697,6 +742,7 @@ const OrderManagementPage = () => {
         show={showUrgentForm}
         orderData={urgentOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setUrgentOrder}
         onSave={handleAddUrgentOrder}
         onClose={() => setShowUrgentForm(false)}
@@ -743,12 +789,7 @@ const OrderManagementPage = () => {
         onClose={() => setShowFinishOrderModal(false)}
       />
 
-      <DelayOrderModal
-        show={showDelayOrderModal}
-        order={delayingOrder}
-        onConfirm={handleConfirmDelayOrder}
-        onClose={() => setShowDelayOrderModal(false)}
-      />
+
 
       <SubmitWorkOrderModal
         show={showSubmitWorkOrderModal}
