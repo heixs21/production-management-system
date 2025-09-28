@@ -23,6 +23,9 @@ const MATERIAL_TAKT_TABLE = {
   },
   // 套筒类型
   '套筒': {
+    '0-20': {
+      '无需无孔': 80
+    },
     '20-30': {
       '无需无孔': 85
     },
@@ -32,8 +35,20 @@ const MATERIAL_TAKT_TABLE = {
     '40-50': {
       '无需无孔': 100
     },
-    '50-58': {
+    '50-60': {
       '无需无孔': 115
+    },
+    '60-70': {
+      '无需无孔': 125
+    },
+    '70-80': {
+      '无需无孔': 135
+    },
+    '80-90': {
+      '无需无孔': 145
+    },
+    '90-100': {
+      '无需无孔': 155
     }
   },
   // 滚子类型
@@ -50,8 +65,20 @@ const MATERIAL_TAKT_TABLE = {
     '40-50': {
       '无需无孔': 105
     },
-    '50-58': {
+    '50-60': {
       '无需无孔': 113
+    },
+    '60-70': {
+      '无需无孔': 120
+    },
+    '70-80': {
+      '无需无孔': 128
+    },
+    '80-90': {
+      '无需无孔': 135
+    },
+    '90-100': {
+      '无需无孔': 142
     }
   },
   // 销轴类型
@@ -68,8 +95,20 @@ const MATERIAL_TAKT_TABLE = {
     '40-50': {
       '无需无孔': 28
     },
-    '50-58': {
+    '50-60': {
       '无需无孔': 34
+    },
+    '60-70': {
+      '无需无孔': 38
+    },
+    '70-80': {
+      '无需无孔': 42
+    },
+    '80-90': {
+      '无需无孔': 46
+    },
+    '90-100': {
+      '无需无孔': 50
     }
   },
   // 其他物料类型
@@ -98,18 +137,18 @@ export const identifyMaterialType = (materialName) => {
     return '内外板';
   }
 
-  // 检查是否包含"金加工"和"套筒"
-  if (name.includes('金加工') && name.includes('套筒')) {
+  // 套筒识别 - 更宽泛的匹配
+  if (name.includes('套筒')) {
     return '套筒';
   }
 
-  // 检查是否包含"金加工"和"滚子"
-  if (name.includes('金加工') && name.includes('滚子')) {
+  // 滚子识别 - 更宽泛的匹配
+  if (name.includes('滚子')) {
     return '滚子';
   }
 
-  // 检查是否包含"金加工"和"销轴"
-  if (name.includes('金加工') && name.includes('销轴')) {
+  // 销轴识别 - 更宽泛的匹配
+  if (name.includes('销轴')) {
     return '销轴';
   }
 
@@ -124,12 +163,24 @@ export const identifyMaterialType = (materialName) => {
 export const extractRollerModel = (materialName) => {
   if (!materialName) return '';
 
-  // 匹配"金加工 012滚子"、"金加工 042套筒"等模式，提取数字
-  const modelMatch = materialName.match(/金加工\s*(\d{3})[滚套]/);
+  // 多种模式匹配
+  const patterns = [
+    /金加工\s*(\d{2,3})[滚套]/,  // 金加工 012滚子、金加工 042套筒
+    /(\d{2,3})[滚套]/,          // 012滚子、042套筒
+    /金加工\s*(\d{1,3}\.\d+)[滚套销]/,  // 金加工 31.5滚子
+    /(\d{1,3}\.\d+)[滚套销]/,   // 31.5滚子
+    /金加工\s*(\d{1,3})[滚套销]/,      // 金加工 31滚子
+    /(\d{1,3})[滚套销]/,        // 31滚子
+    /Φ(\d+)/,                  // Φ63
+    /φ(\d+)/                   // φ63
+  ];
 
-  if (modelMatch && modelMatch[1]) {
-    const model = parseInt(modelMatch[1]);
-    return model.toString();
+  for (const pattern of patterns) {
+    const match = materialName.match(pattern);
+    if (match && match[1]) {
+      const model = parseFloat(match[1]);
+      return Math.round(model).toString();
+    }
   }
 
   return '';
@@ -171,6 +222,12 @@ export const mapModelToSizeRange = (model) => {
   } else if (modelNum > 70 && modelNum <= 80) {
     console.log('映射为70-80');
     return '70-80';
+  } else if (modelNum > 80 && modelNum <= 90) {
+    console.log('映射为80-90');
+    return '80-90';
+  } else if (modelNum > 90 && modelNum <= 100) {
+    console.log('映射为90-100');
+    return '90-100';
   }
 
   console.log('无法映射尺寸范围');
@@ -188,7 +245,7 @@ export const identifyHoleType = (materialName) => {
   const name = materialName.toLowerCase();
 
   // 对于套筒、滚子、销轴，直接返回型号范围
-  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒') || name.includes('销轴'))) {
+  if (name.includes('滚子') || name.includes('套筒') || name.includes('销轴')) {
     const model = extractRollerModel(materialName);
     const sizeRange = mapModelToSizeRange(model);
     return sizeRange;
@@ -214,7 +271,7 @@ export const extractThickness = (materialName) => {
   const name = materialName.toLowerCase();
 
   // 对于套筒、滚子、销轴，返回无需无孔
-  if (name.includes('金加工') && (name.includes('滚子') || name.includes('套筒') || name.includes('销轴'))) {
+  if (name.includes('滚子') || name.includes('套筒') || name.includes('销轴')) {
     return '无需无孔';
   }
 

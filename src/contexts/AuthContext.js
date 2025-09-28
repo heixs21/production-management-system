@@ -16,14 +16,10 @@ window.fetch = async (...args) => {
   try {
     const response = await originalFetch(...args);
     
-    // 检查是否为401或403错误
-    if (response.status === 401 || response.status === 403) {
-      const text = await response.text();
-      if (text.includes('令牌') || text.includes('token') || text.includes('unauthorized') || text.includes('forbidden')) {
-        console.log('检测到令牌失效，自动退出登录');
-        window.forceLogout();
-        return response;
-      }
+    // 检查是否为401或403错误，但不读取body
+    if ((response.status === 401 || response.status === 403) && args[0].includes('/auth/login')) {
+      // 对于登录请求，不进行拦截处理
+      return response;
     }
     
     return response;

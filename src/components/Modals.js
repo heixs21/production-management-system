@@ -169,11 +169,14 @@ export const OrderModal = ({
   isEditing,
   orderData,
   machines,
+  materials = [],
   onOrderChange,
   onSave,
   onClose
 }) => {
   const [loading, setLoading] = useState(false);
+  const [showTimeAnalysis, setShowTimeAnalysis] = useState(false);
+  const [timeAnalysisData, setTimeAnalysisData] = useState(null);
 
   // 处理工单号输入完成事件
   const handleOrderNoKeyPress = async (e) => {
@@ -182,14 +185,21 @@ export const OrderModal = ({
       try {
         const result = await sapApi.getOrderMaterial(orderData.orderNo);
         if (result.success) {
-          onOrderChange({
+          const updatedOrderData = {
             ...orderData,
             materialNo: result.data.materialNo,
             materialName: result.data.materialName,
             quantity: result.data.quantity,
             orderComponent: result.data.orderComponent,
             componentDescription: result.data.componentDescription
-          });
+          };
+          onOrderChange(updatedOrderData);
+          
+          // 显示时间分析框
+          if (updatedOrderData.machine && updatedOrderData.materialName) {
+            console.log('触发时间分析:', updatedOrderData);
+            showMachineTimeAnalysis(updatedOrderData.machine, updatedOrderData.materialName, updatedOrderData.quantity);
+          }
         } else {
           alert('获取物料信息失败: ' + result.error);
         }
@@ -198,6 +208,48 @@ export const OrderModal = ({
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  // 显示机台物料时间分析 - 使用与 CurrentOrdersAnalysis 相同的逻辑
+  const showMachineTimeAnalysis = (machineName, materialName, quantity) => {
+    console.log('开始时间分析:', { machineName, materialName, quantity });
+    
+    const machine = machines.find(m => m.name === machineName);
+    console.log('找到机台:', machine);
+    
+    if (machine && materialName && quantity) {
+      // 使用与 CurrentOrdersAnalysis 相同的计算逻辑
+      const { calculateWithCustomParams, identifyMaterialType, identifyHoleType, extractThickness } = require('../utils/materialTaktUtils');
+      
+      const materialType = identifyMaterialType(materialName);
+      const holeType = identifyHoleType(materialName);
+      const thickness = extractThickness(materialName);
+      
+      const productionInfo = calculateWithCustomParams(
+        materialType,
+        holeType,
+        thickness,
+        quantity,
+        machineName,
+        machines
+      );
+      
+      console.log('计算结果:', productionInfo);
+      
+      setTimeAnalysisData({
+        machine: machineName,
+        material: materialName,
+        quantity: quantity,
+        materialType: materialType,
+        holeType: holeType,
+        thickness: thickness,
+        actualTakt: productionInfo.takt,
+        coefficient: machine.coefficient || 1.0,
+        totalTime: productionInfo.estimatedDays
+      });
+      setShowTimeAnalysis(true);
+      console.log('显示时间分析框');
     }
   };
 
@@ -352,6 +404,70 @@ export const OrderModal = ({
           </button>
         </div>
       </div>
+      
+      {/* 时间分析框 */}
+      {showTimeAnalysis && timeAnalysisData && (
+        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-blue-300 w-80 z-60">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-lg font-semibold text-blue-800">时间分析</h4>
+            <button
+              onClick={() => setShowTimeAnalysis(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">机台:</span>
+              <span className="font-medium">{timeAnalysisData.machine}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">物料:</span>
+              <span className="font-medium text-xs" title={timeAnalysisData.material}>
+                {timeAnalysisData.material.length > 20 ? 
+                  timeAnalysisData.material.substring(0, 20) + '...' : 
+                  timeAnalysisData.material}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">数量:</span>
+              <span className="font-medium">{timeAnalysisData.quantity} 件</span>
+            </div>
+            {timeAnalysisData.materialType && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">物料类型:</span>
+                <span className="font-medium text-green-600">{timeAnalysisData.materialType}</span>
+              </div>
+            )}
+            {timeAnalysisData.holeType && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">孔型:</span>
+                <span className="font-medium text-green-600">{timeAnalysisData.holeType}</span>
+              </div>
+            )}
+            {timeAnalysisData.thickness && (
+              <div className="flex justify-between">
+                <span className="text-gray-600">厚度:</span>
+                <span className="font-medium text-green-600">{timeAnalysisData.thickness}mm</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-600">节拍:</span>
+              <span className="font-medium">{timeAnalysisData.actualTakt} 秒/件</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">时间系数:</span>
+              <span className="font-medium">{timeAnalysisData.coefficient}</span>
+            </div>
+            <hr className="my-2" />
+            <div className="flex justify-between font-semibold text-blue-800">
+              <span>预计总时间:</span>
+              <span>{timeAnalysisData.totalTime} 天</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -361,11 +477,14 @@ export const UrgentOrderModal = ({
   show,
   orderData,
   machines,
+  materials = [],
   onOrderChange,
   onSave,
   onClose
 }) => {
   const [loading, setLoading] = useState(false);
+  const [showTimeAnalysis, setShowTimeAnalysis] = useState(false);
+  const [timeAnalysisData, setTimeAnalysisData] = useState(null);
 
   // 处理工单号输入完成事件
   const handleOrderNoKeyPress = async (e) => {
@@ -374,14 +493,20 @@ export const UrgentOrderModal = ({
       try {
         const result = await sapApi.getOrderMaterial(orderData.orderNo);
         if (result.success) {
-          onOrderChange({
+          const updatedOrderData = {
             ...orderData,
             materialNo: result.data.materialNo,
             materialName: result.data.materialName,
             quantity: result.data.quantity,
             orderComponent: result.data.orderComponent,
             componentDescription: result.data.componentDescription
-          });
+          };
+          onOrderChange(updatedOrderData);
+          
+          // 显示时间分析框
+          if (updatedOrderData.machine && updatedOrderData.materialName) {
+            showMachineTimeAnalysis(updatedOrderData.machine, updatedOrderData.materialName, updatedOrderData.quantity);
+          }
         } else {
           alert('获取物料信息失败: ' + result.error);
         }
@@ -390,6 +515,42 @@ export const UrgentOrderModal = ({
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  // 显示机台物料时间分析 - 使用与 CurrentOrdersAnalysis 相同的逻辑
+  const showMachineTimeAnalysis = (machineName, materialName, quantity) => {
+    const machine = machines.find(m => m.name === machineName);
+    
+    if (machine && materialName && quantity) {
+      // 使用与 CurrentOrdersAnalysis 相同的计算逻辑
+      const { calculateWithCustomParams, identifyMaterialType, identifyHoleType, extractThickness } = require('../utils/materialTaktUtils');
+      
+      const materialType = identifyMaterialType(materialName);
+      const holeType = identifyHoleType(materialName);
+      const thickness = extractThickness(materialName);
+      
+      const productionInfo = calculateWithCustomParams(
+        materialType,
+        holeType,
+        thickness,
+        quantity,
+        machineName,
+        machines
+      );
+      
+      setTimeAnalysisData({
+        machine: machineName,
+        material: materialName,
+        quantity: quantity,
+        materialType: materialType,
+        holeType: holeType,
+        thickness: thickness,
+        actualTakt: productionInfo.takt,
+        coefficient: machine.coefficient || 1.0,
+        totalTime: productionInfo.estimatedDays
+      });
+      setShowTimeAnalysis(true);
     }
   };
 
@@ -526,6 +687,48 @@ export const UrgentOrderModal = ({
           </button>
         </div>
       </div>
+      
+      {/* 时间分析框 */}
+      {showTimeAnalysis && timeAnalysisData && (
+        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-red-300 w-80 z-60">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-lg font-semibold text-red-800">紧急工单时间分析</h4>
+            <button
+              onClick={() => setShowTimeAnalysis(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-600">机台:</span>
+              <span className="font-medium">{timeAnalysisData.machine}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">物料:</span>
+              <span className="font-medium">{timeAnalysisData.material}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">数量:</span>
+              <span className="font-medium">{timeAnalysisData.quantity} 件</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">实际节拍:</span>
+              <span className="font-medium">{timeAnalysisData.actualTakt} 秒/件</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">时间系数:</span>
+              <span className="font-medium">{timeAnalysisData.coefficient}</span>
+            </div>
+            <hr className="my-2" />
+            <div className="flex justify-between font-semibold text-red-800">
+              <span>预计总时间:</span>
+              <span>{timeAnalysisData.totalTime} 小时</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

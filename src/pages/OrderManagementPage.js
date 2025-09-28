@@ -700,6 +700,7 @@ const OrderManagementPage = () => {
         isEditing={false}
         orderData={newOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setNewOrder}
         onSave={handleAddOrder}
         onClose={() => setShowAddForm(false)}
@@ -710,6 +711,7 @@ const OrderManagementPage = () => {
         isEditing={true}
         orderData={editingOrder || newOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setEditingOrder}
         onSave={handleSaveOrder}
         onClose={() => setEditingOrder(null)}
@@ -719,6 +721,7 @@ const OrderManagementPage = () => {
         show={showUrgentForm}
         orderData={urgentOrder}
         machines={machines}
+        materials={materials}
         onOrderChange={setUrgentOrder}
         onSave={handleAddUrgentOrder}
         onClose={() => setShowUrgentForm(false)}

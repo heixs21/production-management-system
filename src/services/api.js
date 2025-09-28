@@ -138,13 +138,19 @@ export const authApi = {
         body: JSON.stringify(credentials),
       });
       
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || '登录失败');
+        const errorText = await response.text();
+        let errorMessage = '登录失败';
+        try {
+          const errorData = JSON.parse(errorText);
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          errorMessage = errorText || errorMessage;
+        }
+        throw new Error(errorMessage);
       }
       
-      return data;
+      return await response.json();
     } catch (error) {
       throw error;
     }
