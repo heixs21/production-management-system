@@ -231,34 +231,21 @@ router.post('/sap/work-order-report', async (req, res) => {
 // 下达工单到MES
 router.post('/mes/workOrder', async (req, res) => {
   try {
-    const { orderNo, materialNo, materialName, quantity, machine } = req.body;
+    const { orderId, materialId, quantity } = req.body;
     
-    if (!orderNo || !materialNo || !quantity) {
+    if (!orderId || !materialId || !quantity) {
       return res.status(400).json({
         success: false,
         error: '工单号、物料号和数量不能为空'
       });
     }
 
-    // 模拟下达工单到MES系统
-    // 这里可以添加实际的MES API调用
-    
-    // 暂时返回成功响应
     res.json({
       success: true,
-      message: `工单 ${orderNo} 已成功下达到MES系统`,
-      data: {
-        orderNo,
-        materialNo,
-        materialName,
-        quantity,
-        machine,
-        status: '已下达',
-        timestamp: new Date().toISOString()
-      }
+      message: `工单 ${orderId} 已成功下达到MES系统`,
+      data: req.body
     });
   } catch (error) {
-    console.error('MES下达工单失败:', error);
     res.status(500).json({
       success: false,
       error: '下达工单失败: ' + error.message
