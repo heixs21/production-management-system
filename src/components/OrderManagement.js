@@ -605,10 +605,11 @@ const OrderManagement = ({
                               <FeatureGate feature="mes">
                                 {permissions.canSubmit && onSubmitWorkOrder && (
                                   <button
-                                    onClick={() => onSubmitWorkOrder(order)}
+                                    onClick={isOrderSubmitted(order.orderNo) ? undefined : () => onSubmitWorkOrder(order)}
+                                    disabled={isOrderSubmitted(order.orderNo)}
                                     className={`p-1 rounded ${
                                       isOrderSubmitted(order.orderNo)
-                                        ? 'text-green-600 hover:bg-green-100' 
+                                        ? 'text-gray-400 cursor-not-allowed' 
                                         : 'text-blue-600 hover:bg-blue-100'
                                     }`}
                                     title={isOrderSubmitted(order.orderNo) ? '已下达' : '下达工单'}
