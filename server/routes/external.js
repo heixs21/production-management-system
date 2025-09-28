@@ -231,7 +231,7 @@ router.post('/sap/work-order-report', async (req, res) => {
 // 下达工单到MES
 router.post('/mes/workOrder', async (req, res) => {
   try {
-    const { orderId, materialId, quantity } = req.body;
+    const { radio = 0, orderId, materialId, nextmaterialId, quantity, equipment, priority = 50 } = req.body;
     
     if (!orderId || !materialId || !quantity) {
       return res.status(400).json({
@@ -240,10 +240,36 @@ router.post('/mes/workOrder', async (req, res) => {
       });
     }
 
+    const token = await ensureMesAuth();
+    
+    const requestData = {
+      radio,
+      orderId,
+      materialId,
+      nextmaterialId: nextmaterialId,
+      quantity,
+      equipment: equipment,
+      priority
+    };
+
+    const response = await fetch('http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const result = await response.json();
     res.json({
       success: true,
       message: `工单 ${orderId} 已成功下达到MES系统`,
-      data: req.body
+      data: result
     });
   } catch (error) {
     res.status(500).json({
@@ -255,17 +281,12 @@ router.post('/mes/workOrder', async (req, res) => {
 
 router.get('/mes/workOrders', async (req, res) => {
   try {
-    const AUTH_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjkyMEZCRkE3MkM2NzM2Rjk0ODY4NzFBQTg1MDJFMEExIiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NTg2MTM5MjgsImV4cCI6MTc5MDE0OTkyOCwiaXNzIjoiaHR0cDovLzE5Mi4xNjguMzMuMTEyOjQzMzUyIiwiYXVkIjoiQUdWUGxhdGZvcm0iLCJjbGllbnRfaWQiOiJBR1ZQbGF0Zm9ybV9BcHAiLCJzdWIiOiI4MzQ0YzFkNC1hNDNkLWUwMjItMmQwNy0zYTAyNzQ5NWM1OGQiLCJhdXRoX3RpbWUiOjE3NTg2MTM5MjgsImlkcCI6ImxvY2FsIiwicm9sZSI6ImFkbWluIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiYWRtaW4iLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOiJGYWxzZSIsImVtYWlsIjoiYWRtaW5AYWJwLmlvIiwiZW1haWxfdmVyaWZpZWQiOiJGYWxzZSIsIm5hbWUiOiJhZG1pbiIsImlhdCI6MTc1ODYxMzkyOCwic2NvcGUiOlsiQUdWUGxhdGZvcm0iXSwiYW1yIjpbInB3ZCJdfQ.IgYs6kDNd0YO3yNtdO-EhOIOEeTqQ3doCYegDgY-XOyJOUom1evGV1FM3zw_QVG8o-9ZmZUiR1Ly7DDkASrmhY3v8eXgQBTlv3LB1QD1zjlVtjeus6tdu2jDw2q5QGz2vdcp7p2vf_KgTYGWL1XXOcZBibsZ3P9k0B3V4SI5eXbHMOuCEkCymQpLLu8oqXiN-aevsCrcLFHSuWTbf2KvBmY_j_EwtzQmruAGS-WwSMcc587Mf_6yBQvLlCYfIUeFv9vr9x19YxNG-Lf3dpSqvIugP8F8MmPtXbEnBcfKPQ6NXOXZcDH4CMmPWkYcG2QjfWGrV7XUvX6Bs4x6BhExaQ';
+    const token = await ensureMesAuth();
     
     const response = await fetch('http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder?Filter=&Sorting=&SkipCount=0&MaxResultCount=10', {
       method: 'GET',
       headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-Hans',
-        'Authorization': `Bearer ${AUTH_TOKEN}`,
-        'Connection': 'keep-alive',
-        'Origin': 'http://192.168.33.112:9527',
-        'Referer': 'http://192.168.33.112:9527/'
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -284,18 +305,12 @@ router.get('/mes/workOrders', async (req, res) => {
 router.post('/mes/startWorkOrder/:orderId', async (req, res) => {
   try {
     const { orderId } = req.params;
-    const AUTH_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjkyMEZCRkE3MkM2NzM2Rjk0ODY4NzFBQTg1MDJFMEExIiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NTg2MTM5MjgsImV4cCI6MTc5MDE0OTkyOCwiaXNzIjoiaHR0cDovLzE5Mi4xNjguMzMuMTEyOjQzMzUyIiwiYXVkIjoiQUdWUGxhdGZvcm0iLCJjbGllbnRfaWQiOiJBR1ZQbGF0Zm9ybV9BcHAiLCJzdWIiOiI4MzQ0YzFkNC1hNDNkLWUwMjItMmQwNy0zYTAyNzQ5NWM1OGQiLCJhdXRoX3RpbWUiOjE3NTg2MTM5MjgsImlkcCI6ImxvY2FsIiwicm9sZSI6ImFkbWluIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiYWRtaW4iLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOiJGYWxzZSIsImVtYWlsIjoiYWRtaW5AYWJwLmlvIiwiZW1haWxfdmVyaWZpZWQiOiJGYWxzZSIsIm5hbWUiOiJhZG1pbiIsImlhdCI6MTc1ODYxMzkyOCwic2NvcGUiOlsiQUdWUGxhdGZvcm0iXSwiYW1yIjpbInB3ZCJdfQ.IgYs6kDNd0YO3yNtdO-EhOIOEeTqQ3doCYegDgY-XOyJOUom1evGV1FM3zw_QVG8o-9ZmZUiR1Ly7DDkASrmhY3v8eXgQBTlv3LB1QD1zjlVtjeus6tdu2jDw2q5QGz2vdcp7p2vf_KgTYGWL1XXOcZBibsZ3P9k0B3V4SI5eXbHMOuCEkCymQpLLu8oqXiN-aevsCrcLFHSuWTbf2KvBmY_j_EwtzQmruAGS-WwSMcc587Mf_6yBQvLlCYfIUeFv9vr9x19YxNG-Lf3dpSqvIugP8F8MmPtXbEnBcfKPQ6NXOXZcDH4CMmPWkYcG2QjfWGrV7XUvX6Bs4x6BhExaQ';
+    const token = await ensureMesAuth();
     
     const response = await fetch(`http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/startWorkOrder/${orderId}`, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-Hans',
-        'Authorization': `Bearer ${AUTH_TOKEN}`,
-        'Connection': 'keep-alive',
-        'Content-Length': '0',
-        'Origin': 'http://192.168.33.112:9527',
-        'Referer': 'http://192.168.33.112:9527/'
+        'Authorization': `Bearer ${token}`
       }
     });
 
@@ -314,18 +329,12 @@ router.post('/mes/startWorkOrder/:orderId', async (req, res) => {
 router.post('/mes/cancelWorkOrder/:workOrderId', async (req, res) => {
   try {
     const { workOrderId } = req.params;
-    const AUTH_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjkyMEZCRkE3MkM2NzM2Rjk0ODY4NzFBQTg1MDJFMEExIiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NTg2MTM5MjgsImV4cCI6MTc5MDE0OTkyOCwiaXNzIjoiaHR0cDovLzE5Mi4xNjguMzMuMTEyOjQzMzUyIiwiYXVkIjoiQUdWUGxhdGZvcm0iLCJjbGllbnRfaWQiOiJBR1ZQbGF0Zm9ybV9BcHAiLCJzdWIiOiI4MzQ0YzFkNC1hNDNkLWUwMjItMmQwNy0zYTAyNzQ5NWM1OGQiLCJhdXRoX3RpbWUiOjE3NTg2MTM5MjgsImlkcCI6ImxvY2FsIiwicm9sZSI6ImFkbWluIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiYWRtaW4iLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOiJGYWxzZSIsImVtYWlsIjoiYWRtaW5AYWJwLmlvIiwiZW1haWxfdmVyaWZpZWQiOiJGYWxzZSIsIm5hbWUiOiJhZG1pbiIsImlhdCI6MTc1ODYxMzkyOCwic2NvcGUiOlsiQUdWUGxhdGZvcm0iXSwiYW1yIjpbInB3ZCJdfQ.IgYs6kDNd0YO3yNtdO-EhOIOEeTqQ3doCYegDgY-XOyJOUom1evGV1FM3zw_QVG8o-9ZmZUiR1Ly7DDkASrmhY3v8eXgQBTlv3LB1QD1zjlVtjeus6tdu2jDw2q5QGz2vdcp7p2vf_KgTYGWL1XXOcZBibsZ3P9k0B3V4SI5eXbHMOuCEkCymQpLLu8oqXiN-aevsCrcLFHSuWTbf2KvBmY_j_EwtzQmruAGS-WwSMcc587Mf_6yBQvLlCYfIUeFv9vr9x19YxNG-Lf3dpSqvIugP8F8MmPtXbEnBcfKPQ6NXOXZcDH4CMmPWkYcG2QjfWGrV7XUvX6Bs4x6BhExaQ';
+    const token = await ensureMesAuth();
     
     const response = await fetch(`http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/cancelWorkOrder/${workOrderId}`, {
       method: 'POST',
       headers: {
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-Hans',
-        'Authorization': `Bearer ${AUTH_TOKEN}`,
-        'Connection': 'keep-alive',
-        'Content-Length': '0',
-        'Origin': 'http://192.168.33.112:9527',
-        'Referer': 'http://192.168.33.112:9527/'
+        'Authorization': `Bearer ${token}`
       }
     });
 
