@@ -329,18 +329,28 @@ const OrderManagementPage = () => {
 
   // 批量下达工单处理函数（不打开模态框）
   const handleBatchSubmitWorkOrder = useCallback(async (order) => {
+    const machine = machines.find(m => m.name === order.machine);
+    // 从组件描述中提取第一个组件物料号
+    let firstComponentMatnr = '';
+    if (order.componentDescription) {
+      const match = order.componentDescription.match(/^([^:]+)/);
+      if (match) {
+        firstComponentMatnr = match[1].trim();
+      }
+    }
+    
     const workOrderData = {
-      orderNo: order.orderNo,
-      materialNo: order.materialNo,
-      materialName: order.materialName,
+      orderId: order.orderNo,
+      materialId: firstComponentMatnr || order.orderComponent || '',
+      nextmaterialId: order.materialNo || '',
       quantity: order.quantity,
-      machine: order.machine,
-      startDate: order.startDate,
-      expectedEndDate: order.expectedEndDate
+      equipment: machine?.lineCode || '',
+      priority: order.priority || 1,
+      radio: 0
     };
     
     await workOrderApi.submit(workOrderData);
-  }, []);
+  }, [machines]);
 
   const handleConfirmSubmitWorkOrder = useCallback(async (workOrderData) => {
     try {

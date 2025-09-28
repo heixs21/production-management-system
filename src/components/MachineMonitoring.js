@@ -326,18 +326,21 @@ const MachineMonitoring = () => {
                                     </button>
                                   </>
                                 ) : (
-                                  <button
-                                    onClick={() => cancelWorkOrder(order.id)}
-                                    disabled={operationLoading[order.id] === 'canceling'}
-                                    className="flex items-center px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
-                                  >
-                                    {operationLoading[order.id] === 'canceling' ? (
-                                      <RefreshCw className="w-3 h-3 animate-spin mr-1" />
-                                    ) : (
-                                      <Square className="w-3 h-3 mr-1" />
-                                    )}
-                                    取消
-                                  </button>
+                                  <>
+                                    <button
+                                      onClick={() => cancelWorkOrder(order.id)}
+                                      disabled={operationLoading[order.id] === 'canceling'}
+                                      className="flex items-center px-3 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                      {operationLoading[order.id] === 'canceling' ? (
+                                        <RefreshCw className="w-3 h-3 animate-spin mr-1" />
+                                      ) : (
+                                        <Square className="w-3 h-3 mr-1" />
+                                      )}
+                                      取消
+                                    </button>
+                                    <div className="w-16"></div>
+                                  </>
                                 )}
                               </div>
                             </td>
