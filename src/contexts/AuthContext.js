@@ -10,6 +10,28 @@ window.forceLogout = () => {
   window.location.href = '/login';
 };
 
+// 全局API错误处理
+const originalFetch = window.fetch;
+window.fetch = async (...args) => {
+  try {
+    const response = await originalFetch(...args);
+    
+    // 检查是否为401或403错误
+    if (response.status === 401 || response.status === 403) {
+      const text = await response.text();
+      if (text.includes('令牌') || text.includes('token') || text.includes('unauthorized') || text.includes('forbidden')) {
+        console.log('检测到令牌失效，自动退出登录');
+        window.forceLogout();
+        return response;
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    throw error;
+  }
+};
+
 const AuthContext = createContext();
 
 export const useAuth = () => {

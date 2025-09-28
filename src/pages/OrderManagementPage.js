@@ -171,10 +171,16 @@ const OrderManagementPage = () => {
       }
 
       const dates = [];
-      const current = new Date(start);
-      while (current <= end) {
-        dates.push(current.toISOString().split('T')[0]);
-        current.setDate(current.getDate() + 1);
+      // 使用UTC日期避免时区问题
+      const current = new Date(Date.UTC(start.getFullYear(), start.getMonth(), start.getDate()));
+      const endUTC = new Date(Date.UTC(end.getFullYear(), end.getMonth(), end.getDate()));
+      
+      while (current.getTime() <= endUTC.getTime()) {
+        const year = current.getUTCFullYear();
+        const month = String(current.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(current.getUTCDate()).padStart(2, '0');
+        dates.push(`${year}-${month}-${day}`);
+        current.setUTCDate(current.getUTCDate() + 1);
       }
       
       return dates;

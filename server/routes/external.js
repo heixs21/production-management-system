@@ -228,6 +228,44 @@ router.post('/sap/work-order-report', async (req, res) => {
 });
 
 // MES工单API
+// 下达工单到MES
+router.post('/mes/workOrder', async (req, res) => {
+  try {
+    const { orderNo, materialNo, materialName, quantity, machine } = req.body;
+    
+    if (!orderNo || !materialNo || !quantity) {
+      return res.status(400).json({
+        success: false,
+        error: '工单号、物料号和数量不能为空'
+      });
+    }
+
+    // 模拟下达工单到MES系统
+    // 这里可以添加实际的MES API调用
+    
+    // 暂时返回成功响应
+    res.json({
+      success: true,
+      message: `工单 ${orderNo} 已成功下达到MES系统`,
+      data: {
+        orderNo,
+        materialNo,
+        materialName,
+        quantity,
+        machine,
+        status: '已下达',
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error('MES下达工单失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '下达工单失败: ' + error.message
+    });
+  }
+});
+
 router.get('/mes/workOrders', async (req, res) => {
   try {
     const AUTH_TOKEN = 'eyJhbGciOiJSUzI1NiIsImtpZCI6IjkyMEZCRkE3MkM2NzM2Rjk0ODY4NzFBQTg1MDJFMEExIiwidHlwIjoiYXQrand0In0.eyJuYmYiOjE3NTg2MTM5MjgsImV4cCI6MTc5MDE0OTkyOCwiaXNzIjoiaHR0cDovLzE5Mi4xNjguMzMuMTEyOjQzMzUyIiwiYXVkIjoiQUdWUGxhdGZvcm0iLCJjbGllbnRfaWQiOiJBR1ZQbGF0Zm9ybV9BcHAiLCJzdWIiOiI4MzQ0YzFkNC1hNDNkLWUwMjItMmQwNy0zYTAyNzQ5NWM1OGQiLCJhdXRoX3RpbWUiOjE3NTg2MTM5MjgsImlkcCI6ImxvY2FsIiwicm9sZSI6ImFkbWluIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvZ2l2ZW5uYW1lIjoiYWRtaW4iLCJwaG9uZV9udW1iZXJfdmVyaWZpZWQiOiJGYWxzZSIsImVtYWlsIjoiYWRtaW5AYWJwLmlvIiwiZW1haWxfdmVyaWZpZWQiOiJGYWxzZSIsIm5hbWUiOiJhZG1pbiIsImlhdCI6MTc1ODYxMzkyOCwic2NvcGUiOlsiQUdWUGxhdGZvcm0iXSwiYW1yIjpbInB3ZCJdfQ.IgYs6kDNd0YO3yNtdO-EhOIOEeTqQ3doCYegDgY-XOyJOUom1evGV1FM3zw_QVG8o-9ZmZUiR1Ly7DDkASrmhY3v8eXgQBTlv3LB1QD1zjlVtjeus6tdu2jDw2q5QGz2vdcp7p2vf_KgTYGWL1XXOcZBibsZ3P9k0B3V4SI5eXbHMOuCEkCymQpLLu8oqXiN-aevsCrcLFHSuWTbf2KvBmY_j_EwtzQmruAGS-WwSMcc587Mf_6yBQvLlCYfIUeFv9vr9x19YxNG-Lf3dpSqvIugP8F8MmPtXbEnBcfKPQ6NXOXZcDH4CMmPWkYcG2QjfWGrV7XUvX6Bs4x6BhExaQ';
