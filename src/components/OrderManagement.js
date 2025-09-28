@@ -609,12 +609,12 @@ const OrderManagement = ({
                                     disabled={isOrderSubmitted(order.orderNo)}
                                     className={`p-1 rounded ${
                                       isOrderSubmitted(order.orderNo)
-                                        ? 'text-gray-400 cursor-not-allowed' 
+                                        ? 'text-gray-400 cursor-not-allowed bg-gray-100' 
                                         : 'text-blue-600 hover:bg-blue-100'
                                     }`}
                                     title={isOrderSubmitted(order.orderNo) ? '已下达' : '下达工单'}
                                   >
-                                    {isOrderSubmitted(order.orderNo) ? '✅' : '📤'}
+                                    {isOrderSubmitted(order.orderNo) ? '🔒' : '📤'}
                                   </button>
                                 )}
                               </FeatureGate>
