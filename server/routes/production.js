@@ -54,4 +54,14 @@ router.post('/shifts', authenticateToken, async (req, res) => {
   }
 });
 
+router.delete('/shifts/:shiftId', authenticateToken, async (req, res) => {
+  try {
+    const { shiftId } = req.params;
+    await pool.execute('DELETE FROM shifts WHERE id = ?', [shiftId]);
+    res.json({ message: '班次删除成功' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;

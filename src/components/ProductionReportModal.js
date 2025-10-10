@@ -148,10 +148,30 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
       
       if (response.ok) {
         setNewShiftName('');
-        loadData(); // 重新加载数据
+        loadData();
       }
     } catch (error) {
       console.error('添加班次失败:', error);
+    }
+  };
+
+  const handleDeleteShift = async (shiftId) => {
+    if (!window.confirm('确定要删除这个班次吗？')) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      
+      const response = await fetch(`${serverUrl}/api/shifts/${shiftId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        loadData();
+      }
+    } catch (error) {
+      console.error('删除班次失败:', error);
     }
   };
 
@@ -176,22 +196,38 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
           <div className="text-center py-8">加载中...</div>
         ) : (
           <>
-            {/* 添加班次 */}
-            <div className="mb-4 flex items-center space-x-2">
-              <input
-                type="text"
-                placeholder="新班次名称"
-                value={newShiftName}
-                onChange={(e) => setNewShiftName(e.target.value)}
-                className="px-3 py-1 border rounded text-sm"
-              />
-              <button
-                onClick={handleAddShift}
-                className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-1" />
-                添加班次
-              </button>
+            {/* 班次管理 */}
+            <div className="mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  type="text"
+                  placeholder="新班次名称"
+                  value={newShiftName}
+                  onChange={(e) => setNewShiftName(e.target.value)}
+                  className="px-3 py-1 border rounded text-sm"
+                />
+                <button
+                  onClick={handleAddShift}
+                  className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 flex items-center"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  添加班次
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(shifts || []).map(shift => (
+                  <div key={shift.id} className="flex items-center bg-gray-100 rounded px-2 py-1 text-sm">
+                    <span>{shift.name}</span>
+                    <button
+                      onClick={() => handleDeleteShift(shift.id)}
+                      className="ml-2 text-red-600 hover:text-red-800"
+                      title="删除班次"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* 产量上报表格 */}
