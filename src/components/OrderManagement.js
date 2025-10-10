@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send, FileText } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
-import ProductionReportModal, { SingleOrderProductionModal } from './ProductionReportModal';
+import ProductionReportModal from './ProductionReportModal';
+import { ReportWorkModal } from './Modals';
 import FeatureGate from './FeatureGate';
 
 const OrderManagement = ({
@@ -26,8 +27,9 @@ const OrderManagement = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
-  const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
   const [showProductionReport, setShowProductionReport] = useState(false);
+  const [showReportWorkModal, setShowReportWorkModal] = useState(false);
+  const [reportWorkOrder, setReportWorkOrder] = useState(null);
   const [mesWorkOrders, setMesWorkOrders] = useState([]);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   // 使用外部传入的分组状态
@@ -104,17 +106,25 @@ const OrderManagement = ({
   };
 
   const handleProductionReport = (order) => {
-    setProductionReportModal({ isOpen: true, order });
+    setReportWorkOrder(order);
+    setShowReportWorkModal(true);
   };
 
-  const handleCloseProductionReport = () => {
-    setProductionReportModal({ isOpen: false, order: null });
-  };
-
-  const handleSaveProductionReport = (orderId, dailyReports, totalReported) => {
+  const handleConfirmReportWork = (orderId, dailyQuantity, delayReason) => {
+    // 使用今天的日期
+    const today = new Date().toISOString().split('T')[0];
     if (onUpdateOrderReports) {
-      onUpdateOrderReports(orderId, dailyReports, totalReported);
+      // 获取当前工单的dailyReports
+      const order = reportWorkOrder;
+      const newDailyReports = {
+        ...order.dailyReports,
+        [today]: dailyQuantity
+      };
+      const totalReported = Object.values(newDailyReports).reduce((sum, qty) => sum + qty, 0);
+      onUpdateOrderReports(orderId, newDailyReports, totalReported);
     }
+    setShowReportWorkModal(false);
+    setReportWorkOrder(null);
   };
 
   // 获取MES工单数据
@@ -385,7 +395,7 @@ const OrderManagement = ({
                           <button
                             onClick={() => handleProductionReport(order)}
                             className="text-green-600 hover:text-green-800"
-                            title="查看产量上报"
+                            title="产量上报"
                           >
                             <BarChart3 className="w-4 h-4" />
                           </button>
@@ -668,12 +678,13 @@ const OrderManagement = ({
         </div>
       )}
       
-      {/* 单个工单产量上报弹窗 */}
-      <SingleOrderProductionModal
-        isOpen={productionReportModal.isOpen}
-        order={productionReportModal.order}
-        onClose={handleCloseProductionReport}
-        onSave={handleSaveProductionReport}
+      {/* 产量上报弹窗 */}
+      <ReportWorkModal
+        show={showReportWorkModal}
+        order={reportWorkOrder}
+        date={new Date().toISOString().split('T')[0]}
+        onConfirm={handleConfirmReportWork}
+        onClose={() => setShowReportWorkModal(false)}
       />
       
       {/* 产量统计报表 */}
