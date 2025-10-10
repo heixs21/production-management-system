@@ -99,97 +99,68 @@ export const SingleOrderProductionModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg w-2/3 max-w-4xl max-h-5/6 flex flex-col">
-        {/* 头部 */}
-        <div className="flex justify-between items-center p-4 border-b">
-          <h2 className="text-xl font-semibold">产量上报 - {order.orderNo}</h2>
-          <button
-            onClick={onClose}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <X className="w-6 h-6" />
-          </button>
-        </div>
+      <div className="bg-white p-6 rounded-lg w-96">
+        <h3 className="text-lg font-semibold mb-4 flex items-center">
+          📝 工单产量上报
+        </h3>
 
         {/* 工单信息 */}
-        <div className="p-4 bg-blue-50 border-b">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div>
-              <span className="text-gray-600">工单号:</span>
-              <span className="font-medium ml-2">{order.orderNo}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">机台:</span>
-              <span className="font-medium ml-2">{order.machine}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">计划数量:</span>
-              <span className="font-medium ml-2">{order.quantity}</span>
-            </div>
-            <div>
-              <span className="text-gray-600">累计产量:</span>
-              <span className="font-medium ml-2 text-blue-600">{totalReported}</span>
-            </div>
-          </div>
-          <div className="mt-2">
-            <span className="text-gray-600">物料名称:</span>
-            <span className="font-medium ml-2">{order.materialName}</span>
+        <div className="bg-blue-50 p-3 rounded mb-4 text-sm">
+          <div className="font-medium text-blue-800">工单信息：</div>
+          <div className="text-blue-700">
+            <div>工单号：{order.orderNo}</div>
+            <div>机台：{order.machine}</div>
+            <div>计划数量：{order.quantity}</div>
+            <div>累计产量：{totalReported}</div>
+            <div>物料名称：{order.materialName}</div>
           </div>
         </div>
 
         {/* 添加新记录 */}
-        <div className="p-4 border-b bg-gray-50">
-          <h3 className="font-medium mb-3">
-            {editingDate ? '修改产量记录' : '添加产量记录'}
-          </h3>
-          <div className="flex items-center space-x-3">
-            <input
-              type="date"
-              value={newDate}
-              onChange={(e) => setNewDate(e.target.value)}
-              className="px-3 py-2 border rounded"
-            />
-            <input
-              type="number"
-              value={newQuantity}
-              onChange={(e) => setNewQuantity(e.target.value)}
-              placeholder="产量"
-              className="px-3 py-2 border rounded w-24"
-              min="1"
-            />
-            <button
-              onClick={editingDate ? handleUpdateReport : handleAddReport}
-              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 flex items-center"
-            >
-              {editingDate ? (
-                <>
-                  <Edit3 className="w-4 h-4 mr-1" />
-                  更新
-                </>
-              ) : (
-                <>
-                  <Plus className="w-4 h-4 mr-1" />
-                  添加
-                </>
-              )}
-            </button>
-            {editingDate && (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {editingDate ? '修改产量记录' : '添加产量记录'}
+            </label>
+            <div className="flex items-center space-x-3">
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="w-full p-2 border rounded"
+              />
+              <input
+                type="number"
+                value={newQuantity}
+                onChange={(e) => setNewQuantity(e.target.value)}
+                placeholder="当日产量"
+                className="w-full p-2 border rounded"
+                min="1"
+              />
               <button
-                onClick={() => {
-                  setEditingDate(null);
-                  setNewDate('');
-                  setNewQuantity('');
-                }}
-                className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                onClick={editingDate ? handleUpdateReport : handleAddReport}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
               >
-                取消
+                {editingDate ? '更新' : '添加'}
               </button>
-            )}
+              {editingDate && (
+                <button
+                  onClick={() => {
+                    setEditingDate(null);
+                    setNewDate('');
+                    setNewQuantity('');
+                  }}
+                  className="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600"
+                >
+                  取消
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* 产量记录列表 */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="mt-4">
           {sortedDates.length === 0 ? (
             <div className="text-center text-gray-500 py-8">
               暂无产量记录
@@ -198,24 +169,24 @@ export const SingleOrderProductionModal = ({
             <div className="space-y-2">
               <h3 className="font-medium mb-3">产量记录</h3>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="px-4 py-2 text-left border">日期</th>
-                      <th className="px-4 py-2 text-right border">产量</th>
-                      <th className="px-4 py-2 text-center border">操作</th>
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-100">
+                      <th className="p-2 text-left">日期</th>
+                      <th className="p-2 text-right">产量</th>
+                      <th className="p-2 text-center">操作</th>
                     </tr>
                   </thead>
                   <tbody>
                     {sortedDates.map(date => (
-                      <tr key={date} className="hover:bg-gray-50">
-                        <td className="px-4 py-2 border">
+                      <tr key={date} className="border-b hover:bg-gray-50">
+                        <td className="p-2">
                           {date} ({['日', '一', '二', '三', '四', '五', '六'][new Date(date).getDay()]})
                         </td>
-                        <td className="px-4 py-2 text-right border font-medium text-green-600">
+                        <td className="p-2 text-right font-medium text-green-600">
                           {dailyReports[date]}
                         </td>
-                        <td className="px-4 py-2 text-center border">
+                        <td className="p-2 text-center">
                           <div className="flex justify-center space-x-2">
                             <button
                               onClick={() => handleEditReport(date, dailyReports[date])}
@@ -236,26 +207,20 @@ export const SingleOrderProductionModal = ({
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="bg-blue-50">
-                    <tr>
-                      <td className="px-4 py-2 font-medium border">总计</td>
-                      <td className="px-4 py-2 text-right font-bold text-blue-600 border">
-                        {totalReported}
-                      </td>
-                      <td className="px-4 py-2 border"></td>
-                    </tr>
-                  </tfoot>
                 </table>
+              </div>
+              <div className="mt-2 text-right">
+                <span className="font-medium text-blue-600">总计: {totalReported}</span>
               </div>
             </div>
           )}
         </div>
 
         {/* 底部按钮 */}
-        <div className="flex justify-end space-x-3 p-4 border-t bg-gray-50">
+        <div className="flex justify-end gap-2 mt-4">
           <button
             onClick={onClose}
-            className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-50"
+            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
           >
             取消
           </button>
