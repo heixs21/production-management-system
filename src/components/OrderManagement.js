@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send, FileText } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
-import ProductionReportModal from './ProductionReportModal';
+import ProductionReportModal, { SingleOrderProductionModal } from './ProductionReportModal';
 import FeatureGate from './FeatureGate';
 
 const OrderManagement = ({
@@ -19,6 +19,7 @@ const OrderManagement = ({
   onExportOrders,
   onUpdateWmsQuantities,
   onGenerateWorkOrderReport,
+  onUpdateOrderReports,
   permissions = {}
 }) => {
   const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
@@ -26,6 +27,7 @@ const OrderManagement = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
   const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
+  const [showProductionReport, setShowProductionReport] = useState(false);
   const [mesWorkOrders, setMesWorkOrders] = useState([]);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   // 使用外部传入的分组状态
@@ -107,6 +109,12 @@ const OrderManagement = ({
 
   const handleCloseProductionReport = () => {
     setProductionReportModal({ isOpen: false, order: null });
+  };
+
+  const handleSaveProductionReport = (orderId, dailyReports, totalReported) => {
+    if (onUpdateOrderReports) {
+      onUpdateOrderReports(orderId, dailyReports, totalReported);
+    }
   };
 
   // 获取MES工单数据
@@ -200,6 +208,13 @@ const OrderManagement = ({
               </button>
             )}
           </FeatureGate>
+          <button
+            onClick={() => setShowProductionReport(true)}
+            className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 flex items-center"
+          >
+            <FileText className="w-4 h-4 mr-1" />
+            产量统计报表
+          </button>
           {permissions.canExport && onExportOrders && (
             <button
               onClick={onExportOrders}
@@ -367,6 +382,13 @@ const OrderManagement = ({
                               <Edit3 className="w-4 h-4" />
                             </button>
                           )}
+                          <button
+                            onClick={() => handleProductionReport(order)}
+                            className="text-green-600 hover:text-green-800"
+                            title="查看产量上报"
+                          >
+                            <BarChart3 className="w-4 h-4" />
+                          </button>
                           {permissions.canDelete && onDeleteOrder && (
                             <button
                               onClick={() => onDeleteOrder(order.id)}
@@ -646,15 +668,19 @@ const OrderManagement = ({
         </div>
       )}
       
-      {/* 产量上报弹窗 */}
-      <ProductionReportModal
+      {/* 单个工单产量上报弹窗 */}
+      <SingleOrderProductionModal
         isOpen={productionReportModal.isOpen}
-        onClose={handleCloseProductionReport}
         order={productionReportModal.order}
-        onSave={() => {
-          // 可以在这里刷新数据或执行其他操作
-          console.log('产量上报保存成功');
-        }}
+        onClose={handleCloseProductionReport}
+        onSave={handleSaveProductionReport}
+      />
+      
+      {/* 产量统计报表 */}
+      <ProductionReportModal
+        show={showProductionReport}
+        orders={orders}
+        onClose={() => setShowProductionReport(false)}
       />
     </div>
   );
