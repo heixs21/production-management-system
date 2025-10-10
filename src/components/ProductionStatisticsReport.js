@@ -1,10 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { BarChart3, Download, ChevronDown, ChevronRight } from 'lucide-react';
+import { BarChart3, Download, ChevronDown, ChevronRight, Search, Calendar } from 'lucide-react';
 
 const ProductionStatisticsReport = () => {
   const [statistics, setStatistics] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedOrders, setExpandedOrders] = useState({});
+  const [activeTab, setActiveTab] = useState('current');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedMachine, setSelectedMachine] = useState('all');
 
   useEffect(() => {
     loadStatistics();
@@ -33,7 +38,6 @@ const ProductionStatisticsReport = () => {
           ? reports.reduce((sum, r) => sum + (r.quantity || 0), 0)
           : 0;
         
-        // 按日期汇总产量
         const dailyData = {};
         if (Array.isArray(reports)) {
           reports.forEach(r => {
@@ -55,7 +59,9 @@ const ProductionStatisticsReport = () => {
           reportedQuantity: totalReported,
           completionRate: ((totalReported / order.quantity) * 100).toFixed(1),
           status: order.status,
-          dailyReports: dailyData
+          dailyReports: dailyData,
+          isCompleted: !!order.actualEndDate,
+          actualEndDate: order.actualEndDate
         });
       }
       
@@ -103,13 +109,31 @@ const ProductionStatisticsReport = () => {
     link.click();
   };
 
-  const totalPlanned = statistics.reduce((sum, s) => sum + s.plannedQuantity, 0);
-  const totalReported = statistics.reduce((sum, s) => sum + s.reportedQuantity, 0);
+  const currentOrders = statistics.filter(s => !s.isCompleted);
+  const completedOrders = statistics.filter(s => s.isCompleted);
+
+  const filteredOrders = (activeTab === 'current' ? currentOrders : completedOrders).filter(order => {
+    const matchSearch = searchTerm === '' || 
+      order.orderNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      order.materialName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchMachine = selectedMachine === 'all' || order.machine === selectedMachine;
+    
+    const matchDate = !startDate || !endDate || !order.actualEndDate ||
+      (new Date(order.actualEndDate) >= new Date(startDate) && 
+       new Date(order.actualEndDate) <= new Date(endDate));
+    
+    return matchSearch && matchMachine && matchDate;
+  });
+
+  const machines = [...new Set(statistics.map(s => s.machine))].sort();
+  const totalPlanned = filteredOrders.reduce((sum, s) => sum + s.plannedQuantity, 0);
+  const totalReported = filteredOrders.reduce((sum, s) => sum + s.reportedQuantity, 0);
   const overallRate = totalPlanned > 0 ? ((totalReported / totalPlanned) * 100).toFixed(1) : 0;
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div className="flex items-center space-x-2">
           <BarChart3 className="w-6 h-6 text-blue-600" />
           <h2 className="text-2xl font-bold">产量统计报表</h2>
@@ -122,6 +146,68 @@ const ProductionStatisticsReport = () => {
           <span>导出报表</span>
         </button>
       </div>
+
+      <div className="flex border-b mb-4">
+        <button
+          onClick={() => setActiveTab('current')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'current'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          当前工单 ({currentOrders.length})
+        </button>
+        <button
+          onClick={() => setActiveTab('completed')}
+          className={`px-4 py-2 font-medium ${
+            activeTab === 'completed'
+              ? 'text-blue-600 border-b-2 border-blue-600'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          历史已完成 ({completedOrders.length})
+        </button>
+      </div>
+
+      {activeTab === 'completed' && (
+        <div className="mb-4 grid grid-cols-4 gap-3">
+          <div className="relative">
+            <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+            <input
+              type="text"
+              placeholder="搜索工单号、物料..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-3 py-2 border rounded w-full text-sm"
+            />
+          </div>
+          <select
+            value={selectedMachine}
+            onChange={(e) => setSelectedMachine(e.target.value)}
+            className="px-3 py-2 border rounded text-sm"
+          >
+            <option value="all">全部产线</option>
+            {machines.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-3 py-2 border rounded text-sm"
+            placeholder="开始日期"
+          />
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-3 py-2 border rounded text-sm"
+            placeholder="结束日期"
+          />
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-4 mb-6">
         <div className="bg-blue-50 p-4 rounded-lg">
@@ -156,7 +242,7 @@ const ProductionStatisticsReport = () => {
               </tr>
             </thead>
             <tbody>
-              {statistics.map((stat, index) => (
+              {filteredOrders.map((stat, index) => (
                 <React.Fragment key={stat.orderNo}>
                   <tr className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 cursor-pointer`}
                       onClick={() => toggleExpand(stat.orderNo)}>
