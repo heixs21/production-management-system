@@ -1,8 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send, FileText } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 import ProductionReportModal from './ProductionReportModal';
-import { ReportWorkModal } from './Modals';
 import FeatureGate from './FeatureGate';
 
 const OrderManagement = ({
@@ -20,16 +19,13 @@ const OrderManagement = ({
   onExportOrders,
   onUpdateWmsQuantities,
   onGenerateWorkOrderReport,
-  onUpdateOrderReports,
   permissions = {}
 }) => {
   const [activeTab, setActiveTab] = useState('current'); // 'current' 或 'completed'
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [collapsedMachines, setCollapsedMachines] = useState(new Set());
-  const [showProductionReport, setShowProductionReport] = useState(false);
-  const [showReportWorkModal, setShowReportWorkModal] = useState(false);
-  const [reportWorkOrder, setReportWorkOrder] = useState(null);
+  const [productionReportModal, setProductionReportModal] = useState({ isOpen: false, order: null });
   const [mesWorkOrders, setMesWorkOrders] = useState([]);
   const [batchSubmitting, setBatchSubmitting] = useState(false);
   // 使用外部传入的分组状态
@@ -106,25 +102,11 @@ const OrderManagement = ({
   };
 
   const handleProductionReport = (order) => {
-    setReportWorkOrder(order);
-    setShowReportWorkModal(true);
+    setProductionReportModal({ isOpen: true, order });
   };
 
-  const handleConfirmReportWork = (orderId, dailyQuantity, delayReason) => {
-    // 使用今天的日期
-    const today = new Date().toISOString().split('T')[0];
-    if (onUpdateOrderReports) {
-      // 获取当前工单的dailyReports
-      const order = reportWorkOrder;
-      const newDailyReports = {
-        ...order.dailyReports,
-        [today]: dailyQuantity
-      };
-      const totalReported = Object.values(newDailyReports).reduce((sum, qty) => sum + qty, 0);
-      onUpdateOrderReports(orderId, newDailyReports, totalReported);
-    }
-    setShowReportWorkModal(false);
-    setReportWorkOrder(null);
+  const handleCloseProductionReport = () => {
+    setProductionReportModal({ isOpen: false, order: null });
   };
 
   // 获取MES工单数据
@@ -218,13 +200,6 @@ const OrderManagement = ({
               </button>
             )}
           </FeatureGate>
-          <button
-            onClick={() => setShowProductionReport(true)}
-            className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 flex items-center"
-          >
-            <FileText className="w-4 h-4 mr-1" />
-            产量统计报表
-          </button>
           {permissions.canExport && onExportOrders && (
             <button
               onClick={onExportOrders}
@@ -392,13 +367,6 @@ const OrderManagement = ({
                               <Edit3 className="w-4 h-4" />
                             </button>
                           )}
-                          <button
-                            onClick={() => handleProductionReport(order)}
-                            className="text-green-600 hover:text-green-800"
-                            title="产量上报"
-                          >
-                            <BarChart3 className="w-4 h-4" />
-                          </button>
                           {permissions.canDelete && onDeleteOrder && (
                             <button
                               onClick={() => onDeleteOrder(order.id)}
@@ -679,19 +647,14 @@ const OrderManagement = ({
       )}
       
       {/* 产量上报弹窗 */}
-      <ReportWorkModal
-        show={showReportWorkModal}
-        order={reportWorkOrder}
-        date={new Date().toISOString().split('T')[0]}
-        onConfirm={handleConfirmReportWork}
-        onClose={() => setShowReportWorkModal(false)}
-      />
-      
-      {/* 产量统计报表 */}
       <ProductionReportModal
-        show={showProductionReport}
-        orders={orders}
-        onClose={() => setShowProductionReport(false)}
+        isOpen={productionReportModal.isOpen}
+        onClose={handleCloseProductionReport}
+        order={productionReportModal.order}
+        onSave={() => {
+          // 可以在这里刷新数据或执行其他操作
+          console.log('产量上报保存成功');
+        }}
       />
     </div>
   );

@@ -300,25 +300,6 @@ const OrderManagementPage = () => {
     setReportWorkDate('');
   }, [reportWork, reportWorkDate]);
 
-  // 更新工单产量上报数据
-  const handleUpdateOrderReports = useCallback(async (orderId, dailyReports, totalReported) => {
-    try {
-      const order = orders.find(o => o.id === orderId);
-      if (!order) return;
-
-      await updateOrder({
-        ...order,
-        dailyReports: dailyReports,
-        reportedQuantity: totalReported
-      });
-
-      await loadOrders(); // 重新加载数据
-    } catch (error) {
-      console.error('更新产量上报失败:', error);
-      throw error;
-    }
-  }, [orders, updateOrder, loadOrders]);
-
   // 结束工单处理函数
   const handleFinishOrder = useCallback((order) => {
     setFinishingOrder(order);
@@ -662,7 +643,6 @@ const OrderManagementPage = () => {
           onExportOrders={canPerformAction('order.export') ? handleExportOrders : null}
           onUpdateWmsQuantities={canPerformAction('wms.update') ? handleUpdateWmsQuantities : null}
           onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
-          onUpdateOrderReports={handleUpdateOrderReports}
           permissions={{
             canEdit: canPerformAction('order.edit'),
             canDelete: canPerformAction('order.delete'),
