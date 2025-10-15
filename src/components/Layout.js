@@ -34,6 +34,12 @@ const Layout = ({ children }) => {
       path: '/board',
       icon: '📺',
       permission: 'board'
+    },
+    {
+      name: '产量统计',
+      path: '/production-statistics',
+      icon: '📊',
+      permission: 'orders'
     }
   ];
 

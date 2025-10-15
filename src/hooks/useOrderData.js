@@ -80,8 +80,46 @@ export const useOrderData = () => {
         throw new Error('工单号已存在，请使用不同的工单号');
       }
 
+      const originalOrder = orders.find(o => o.id === updatedOrder.id);
+      
+      // 如果工单被结束（设置了actualEndDate），调整后续工单
+      if (updatedOrder.actualEndDate && !originalOrder?.actualEndDate) {
+        const sameMachineOrders = orders
+          .filter(o => 
+            o.machine === updatedOrder.machine && 
+            !o.actualEndDate && 
+            o.id !== updatedOrder.id &&
+            new Date(o.startDate) >= new Date(originalOrder.startDate)
+          )
+          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+        if (sameMachineOrders.length > 0) {
+          let lastEndDate = new Date(updatedOrder.actualEndDate);
+          
+          for (const nextOrder of sameMachineOrders) {
+            const orderDuration = Math.ceil(
+              (new Date(nextOrder.expectedEndDate) - new Date(nextOrder.startDate)) / (1000 * 60 * 60 * 24)
+            );
+            
+            const newStartDate = new Date(lastEndDate);
+            newStartDate.setDate(newStartDate.getDate() + 1);
+            
+            const newEndDate = new Date(newStartDate);
+            newEndDate.setDate(newEndDate.getDate() + orderDuration);
+            
+            await orderApi.update(nextOrder.id, {
+              ...nextOrder,
+              startDate: newStartDate.toISOString().split('T')[0],
+              expectedEndDate: newEndDate.toISOString().split('T')[0]
+            });
+            
+            lastEndDate = newEndDate;
+          }
+        }
+      }
+
       await orderApi.update(updatedOrder.id, updatedOrder);
-      await loadOrders(); // 重新加载数据
+      await loadOrders();
     } catch (error) {
       console.error('更新工单失败:', error);
       throw error;

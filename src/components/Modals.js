@@ -407,7 +407,7 @@ export const OrderModal = ({
       
       {/* 时间分析框 */}
       {showTimeAnalysis && timeAnalysisData && (
-        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-blue-300 w-80 z-60">
+        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-blue-300 w-80" style={{ zIndex: 9999 }}>
           <div className="flex justify-between items-center mb-3">
             <h4 className="text-lg font-semibold text-blue-800">时间分析</h4>
             <button
@@ -690,7 +690,7 @@ export const UrgentOrderModal = ({
       
       {/* 时间分析框 */}
       {showTimeAnalysis && timeAnalysisData && (
-        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-red-300 w-80 z-60">
+        <div className="fixed top-4 right-4 bg-white p-4 rounded-lg shadow-lg border-2 border-red-300 w-80" style={{ zIndex: 9999 }}>
           <div className="flex justify-between items-center mb-3">
             <h4 className="text-lg font-semibold text-red-800">紧急工单时间分析</h4>
             <button

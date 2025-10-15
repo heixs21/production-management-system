@@ -8,6 +8,7 @@ import MachineManagementPage from './pages/MachineManagementPage';
 import MachineMonitoringPage from './pages/MachineMonitoringPage';
 import ProductionBoard from './components/ProductionBoard';
 import UserManagement from './components/UserManagement';
+import ProductionStatisticsPage from './pages/ProductionStatisticsPage';
 
 // 受保护的路由组件
 const ProtectedRoute = ({ children, permission }) => {
@@ -87,6 +88,14 @@ const router = createBrowserRouter([
     element: (
       <ProtectedRoute permission="admin">
         <UserManagement />
+      </ProtectedRoute>
+    )
+  },
+  {
+    path: "/production-statistics",
+    element: (
+      <ProtectedRoute>
+        <ProductionStatisticsPage />
       </ProtectedRoute>
     )
   }
