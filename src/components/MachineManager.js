@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Edit3, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Edit3, X, ChevronDown, ChevronUp, Settings, Wifi, WifiOff, Activity } from 'lucide-react';
 import { getMachineStatusColors } from '../utils/orderUtils';
 
 const MachineManager = ({
   machines,
   orders,
   onEditMachine,
-  onDeleteMachine
+  onDeleteMachine,
+  onConfigureOPCUA,
+  realtimeStatuses = {}
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const statusColors = getMachineStatusColors();
@@ -38,6 +40,8 @@ const MachineManager = ({
               <th className="p-2 text-left">机台组</th>
               <th className="p-2 text-left">产线代号</th>
               <th className="p-2 text-left">状态</th>
+              <th className="p-2 text-left">OPC UA</th>
+              <th className="p-2 text-left">实时状态</th>
               <th className="p-2 text-left">OEE</th>
               <th className="p-2 text-left">系数</th>
               <th className="p-2 text-left">工单数量</th>
@@ -47,6 +51,7 @@ const MachineManager = ({
           <tbody>
             {machines.map((machine) => {
               const machineOrders = orders.filter(o => o.machine === machine.name);
+              const realtimeStatus = realtimeStatuses[machine.id];
               
               return (
                 <tr key={machine.id} className="border-b hover:bg-gray-50">
@@ -61,6 +66,51 @@ const MachineManager = ({
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[machine.status]}`}>
                       {machine.status}
                     </span>
+                  </td>
+                  {/* OPC UA 连接状态 */}
+                  <td className="p-2 text-center">
+                    {machine.opcuaEnabled ? (
+                      <div className="flex items-center justify-center space-x-1">
+                        {realtimeStatus?.connected ? (
+                          <Wifi className="w-4 h-4 text-green-600" title="已连接" />
+                        ) : (
+                          <WifiOff className="w-4 h-4 text-gray-400" title="未连接" />
+                        )}
+                        <button
+                          onClick={() => onConfigureOPCUA && onConfigureOPCUA(machine)}
+                          className="text-blue-600 hover:text-blue-800"
+                          title="配置 OPC UA"
+                        >
+                          <Settings className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => onConfigureOPCUA && onConfigureOPCUA(machine)}
+                        className="text-gray-400 hover:text-blue-600"
+                        title="启用 OPC UA"
+                      >
+                        <Settings className="w-4 h-4" />
+                      </button>
+                    )}
+                  </td>
+                  {/* 实时状态数据 */}
+                  <td className="p-2">
+                    {realtimeStatus?.realtimeData ? (
+                      <div className="flex items-center space-x-2">
+                        <Activity className="w-4 h-4 text-green-600" />
+                        <div className="text-xs">
+                          <div className="font-medium">{realtimeStatus.realtimeData.status || '-'}</div>
+                          {realtimeStatus.lastUpdate && (
+                            <div className="text-gray-500">
+                              {new Date(realtimeStatus.lastUpdate).toLocaleTimeString('zh-CN')}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400 text-xs">-</span>
+                    )}
                   </td>
                   <td className="p-2 text-center">
                     {machine.oee ? (
@@ -89,12 +139,14 @@ const MachineManager = ({
                     <button
                       onClick={() => onEditMachine(machine)}
                       className="text-blue-600 hover:text-blue-800 mr-2"
+                      title="编辑机台"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => onDeleteMachine(machine.id)}
                       className="text-red-600 hover:text-red-800"
+                      title="删除机台"
                     >
                       <X className="w-4 h-4" />
                     </button>

@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useAuth } from "../contexts/AuthContext";
 import MachineManager from "../components/MachineManager";
+import OPCUAConfig from "../components/OPCUAConfig";
 import {
   ErrorMessage,
   LoadingSpinner,
@@ -36,6 +37,7 @@ const MachineManagementPage = () => {
   // 弹窗状态
   const [showMachineForm, setShowMachineForm] = useState(false);
   const [editingMachine, setEditingMachine] = useState(null);
+  const [configuringOPCUA, setConfiguringOPCUA] = useState(null);
 
   // 表单数据
   const [newMachine, setNewMachine] = useState({ 
@@ -43,6 +45,11 @@ const MachineManagementPage = () => {
     status: "正常", 
     coefficient: 1.00 
   });
+
+  // WebSocket 和实时状态
+  const wsRef = useRef(null);
+  const [realtimeStatuses, setRealtimeStatuses] = useState({});
+  const [wsConnected, setWsConnected] = useState(false);
 
   // 机台管理处理函数
   const handleAddMachine = useCallback(async () => {
@@ -83,6 +90,91 @@ const MachineManagementPage = () => {
     deleteMachine(machineId);
   }, [machines, orders, deleteMachine, setOrders]);
 
+  const handleConfigureOPCUA = useCallback((machine) => {
+    setConfiguringOPCUA(machine);
+  }, []);
+
+  // WebSocket 连接
+  useEffect(() => {
+    const connectWebSocket = () => {
+      const ws = new WebSocket(`ws://${window.location.hostname}:12454/ws/machine-status`);
+      
+      ws.onopen = () => {
+        console.log('✅ WebSocket 已连接');
+        setWsConnected(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          
+          if (message.type === 'status-update') {
+            const { machineId, ...statusData } = message.data;
+            setRealtimeStatuses(prev => ({
+              ...prev,
+              [machineId]: statusData
+            }));
+          }
+        } catch (error) {
+          console.error('处理 WebSocket 消息失败:', error);
+        }
+      };
+
+      ws.onclose = () => {
+        console.log('❌ WebSocket 连接关闭，5秒后重连...');
+        setWsConnected(false);
+        setTimeout(connectWebSocket, 5000);
+      };
+
+      ws.onerror = (error) => {
+        console.error('WebSocket 错误:', error);
+      };
+
+      wsRef.current = ws;
+    };
+
+    connectWebSocket();
+
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+      }
+    };
+  }, []);
+
+  // 定期更新所有机台的连接状态
+  useEffect(() => {
+    const updateStatuses = async () => {
+      const API_BASE = `http://${window.location.hostname}:12454`;
+      const token = localStorage.getItem('token');
+      
+      for (const machine of machines) {
+        if (machine.opcuaEnabled) {
+          try {
+            const response = await fetch(`${API_BASE}/api/machines/${machine.id}/opcua-status`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (response.ok) {
+              const status = await response.json();
+              setRealtimeStatuses(prev => ({
+                ...prev,
+                [machine.id]: status
+              }));
+            }
+          } catch (error) {
+            console.error(`获取机台 ${machine.name} 状态失败:`, error);
+          }
+        }
+      }
+    };
+
+    if (machines.length > 0) {
+      updateStatuses();
+      const interval = setInterval(updateStatuses, 30000); // 每30秒更新一次
+      return () => clearInterval(interval);
+    }
+  }, [machines]);
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* 错误提示和加载状态 */}
@@ -95,7 +187,15 @@ const MachineManagementPage = () => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl font-bold text-gray-800">机台管理</h1>
-              <p className="text-gray-600 mt-1">管理生产线机台设备信息</p>
+              <div className="flex items-center space-x-4 mt-1">
+                <p className="text-gray-600">管理生产线机台设备信息</p>
+                {wsConnected && (
+                  <span className="flex items-center text-xs text-green-600">
+                    <span className="w-2 h-2 bg-green-600 rounded-full mr-1 animate-pulse"></span>
+                    实时监控已启用
+                  </span>
+                )}
+              </div>
             </div>
             <button
               onClick={() => setShowMachineForm(true)}
@@ -113,6 +213,8 @@ const MachineManagementPage = () => {
           orders={orders}
           onEditMachine={handleEditMachine}
           onDeleteMachine={handleDeleteMachine}
+          onConfigureOPCUA={handleConfigureOPCUA}
+          realtimeStatuses={realtimeStatuses}
         />
 
         {/* 统计信息 */}
@@ -164,6 +266,15 @@ const MachineManagementPage = () => {
         onSave={handleSaveMachine}
         onClose={() => setEditingMachine(null)}
       />
+
+      {/* OPC UA 配置弹窗 */}
+      {configuringOPCUA && (
+        <OPCUAConfig
+          machineId={configuringOPCUA.id}
+          machineName={configuringOPCUA.name}
+          onClose={() => setConfiguringOPCUA(null)}
+        />
+      )}
     </div>
   );
 };

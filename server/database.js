@@ -127,6 +127,15 @@ async function initDatabase() {
     await addColumnSafely('materials', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
     await addColumnSafely('production_reports', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
     await addColumnSafely('shifts', 'companyId', 'VARCHAR(50) DEFAULT "hetai-logistics"');
+    
+    // OPC UA 相关字段
+    await addColumnSafely('machines', 'opcuaEnabled', 'BOOLEAN DEFAULT FALSE');
+    await addColumnSafely('machines', 'opcuaEndpoint', 'VARCHAR(500)');
+    await addColumnSafely('machines', 'opcuaNodeId', 'VARCHAR(255)');
+    await addColumnSafely('machines', 'opcuaUsername', 'VARCHAR(100)');
+    await addColumnSafely('machines', 'opcuaPassword', 'VARCHAR(255)');
+    await addColumnSafely('machines', 'realtimeData', 'JSON');
+    await addColumnSafely('machines', 'lastOpcuaUpdate', 'TIMESTAMP NULL');
 
     // 创建默认用户 - 和泰链运
     const [existingAdmin] = await connection.execute('SELECT id FROM users WHERE username = ?', ['admin']);
