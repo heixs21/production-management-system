@@ -44,7 +44,7 @@ const Login = () => {
       <div className="max-w-md w-full space-y-8">
         <div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            生产管理系统
+            和泰生产管理系统
           </h2>
           {step === 'company' && (
             <div className="mt-8">

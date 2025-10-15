@@ -733,7 +733,7 @@ const App = () => {
 
         {/* 甘特图 */}
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold mb-4">生产甘特图</h2>
+          <h2 className="text-lg font-semibold mb-4">生产排程甘特图</h2>
           <DateRangeSelector
             selectedRange={selectedTimeRange}
             onRangeChange={setSelectedTimeRange}
