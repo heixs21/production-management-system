@@ -1,0 +1,1 @@
+[dotenv@17.2.1] injecting env (15) from .env -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }

@@ -68,10 +68,10 @@ router.get('/machines', authenticateToken, addCompanyFilter, async (req, res) =>
 
 router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
-    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders } = req.body;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, companyId) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, req.companyId]
+      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, autoAdjustOrders !== false, req.companyId]
     );
     
     // 为新机台创建默认班次
@@ -86,23 +86,25 @@ router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) =
       status: status || '正常',
       oee: oee || 0.85,
       coefficient: coefficient || 1.00,
-      companyId: req.companyId
+      autoAdjustOrders: autoAdjustOrders !== false
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('添加机台失败:', error);
+    res.status(500).json({ error: '添加机台失败' });
   }
 });
 
 router.put('/machines/:id', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
-    const { name, machineGroup, lineCode, status, oee, coefficient } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders } = req.body;
     await pool.execute(
-      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ? WHERE id = ? AND companyId = ?',
-      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, req.params.id, req.companyId]
+      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ? WHERE id = ? AND companyId = ?',
+      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustOrders !== false, req.params.id, req.companyId]
     );
-    res.json({ message: '更新成功' });
+    res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error('更新机台失败:', error);
+    res.status(500).json({ error: '更新机台失败' });
   }
 });
 
