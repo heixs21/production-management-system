@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { orderApi } from '../services/api';
+import { orderApi, machineApi } from '../services/api';
 
 // 工单数据管理Hook - 使用后端API
 export const useOrderData = () => {
@@ -82,38 +82,82 @@ export const useOrderData = () => {
 
       const originalOrder = orders.find(o => o.id === updatedOrder.id);
       
-      // 如果工单被结束（设置了actualEndDate），调整后续工单
+      // 如果工单被结束（设置了actualEndDate），检查机台配置决定是否调整后续工单
       if (updatedOrder.actualEndDate && !originalOrder?.actualEndDate) {
-        const sameMachineOrders = orders
-          .filter(o => 
-            o.machine === updatedOrder.machine && 
-            !o.actualEndDate && 
-            o.id !== updatedOrder.id &&
-            new Date(o.startDate) >= new Date(originalOrder.startDate)
-          )
-          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-
-        if (sameMachineOrders.length > 0) {
-          let lastEndDate = new Date(updatedOrder.actualEndDate);
+        // 获取机台配置信息
+        try {
+          const machines = await machineApi.getAll();
+          const machine = machines.find(m => m.name === updatedOrder.machine);
           
-          for (const nextOrder of sameMachineOrders) {
-            const orderDuration = Math.ceil(
-              (new Date(nextOrder.expectedEndDate) - new Date(nextOrder.startDate)) / (1000 * 60 * 60 * 24)
-            );
+          // 只有当机台启用了自动调整功能时才执行调整逻辑
+          if (machine && machine.autoAdjustOrders !== false) {
+            const sameMachineOrders = orders
+              .filter(o => 
+                o.machine === updatedOrder.machine && 
+                !o.actualEndDate && 
+                o.id !== updatedOrder.id &&
+                new Date(o.startDate) >= new Date(originalOrder.startDate)
+              )
+              .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+            if (sameMachineOrders.length > 0) {
+              let lastEndDate = new Date(updatedOrder.actualEndDate);
+              
+              for (const nextOrder of sameMachineOrders) {
+                const orderDuration = Math.ceil(
+                  (new Date(nextOrder.expectedEndDate) - new Date(nextOrder.startDate)) / (1000 * 60 * 60 * 24)
+                );
+                
+                const newStartDate = new Date(lastEndDate);
+                newStartDate.setDate(newStartDate.getDate() + 1);
+                
+                const newEndDate = new Date(newStartDate);
+                newEndDate.setDate(newEndDate.getDate() + orderDuration);
+                
+                await orderApi.update(nextOrder.id, {
+                  ...nextOrder,
+                  startDate: newStartDate.toISOString().split('T')[0],
+                  expectedEndDate: newEndDate.toISOString().split('T')[0]
+                });
+                
+                lastEndDate = newEndDate;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('获取机台配置失败:', error);
+          // 如果获取机台配置失败，为了保持向后兼容性，仍然执行调整逻辑
+          const sameMachineOrders = orders
+            .filter(o => 
+              o.machine === updatedOrder.machine && 
+              !o.actualEndDate && 
+              o.id !== updatedOrder.id &&
+              new Date(o.startDate) >= new Date(originalOrder.startDate)
+            )
+            .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+
+          if (sameMachineOrders.length > 0) {
+            let lastEndDate = new Date(updatedOrder.actualEndDate);
             
-            const newStartDate = new Date(lastEndDate);
-            newStartDate.setDate(newStartDate.getDate() + 1);
-            
-            const newEndDate = new Date(newStartDate);
-            newEndDate.setDate(newEndDate.getDate() + orderDuration);
-            
-            await orderApi.update(nextOrder.id, {
-              ...nextOrder,
-              startDate: newStartDate.toISOString().split('T')[0],
-              expectedEndDate: newEndDate.toISOString().split('T')[0]
-            });
-            
-            lastEndDate = newEndDate;
+            for (const nextOrder of sameMachineOrders) {
+              const orderDuration = Math.ceil(
+                (new Date(nextOrder.expectedEndDate) - new Date(nextOrder.startDate)) / (1000 * 60 * 60 * 24)
+              );
+              
+              const newStartDate = new Date(lastEndDate);
+              newStartDate.setDate(newStartDate.getDate() + 1);
+              
+              const newEndDate = new Date(newStartDate);
+              newEndDate.setDate(newEndDate.getDate() + orderDuration);
+              
+              await orderApi.update(nextOrder.id, {
+                ...nextOrder,
+                startDate: newStartDate.toISOString().split('T')[0],
+                expectedEndDate: newEndDate.toISOString().split('T')[0]
+              });
+              
+              lastEndDate = newEndDate;
+            }
           }
         }
       }

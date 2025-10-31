@@ -44,6 +44,7 @@ const MachineManager = ({
               <th className="p-2 text-left">实时状态</th>
               <th className="p-2 text-left">OEE</th>
               <th className="p-2 text-left">系数</th>
+              <th className="p-2 text-left">自动调整工单</th>
               <th className="p-2 text-left">工单数量</th>
               <th className="p-2 text-left">操作</th>
             </tr>
@@ -128,6 +129,13 @@ const MachineManager = ({
                   <td className="p-2 text-center">
                     <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-medium">
                       {machine.coefficient || 1.00}
+                    </span>
+                  </td>
+                  <td className="p-2 text-center">
+                    <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      machine.autoAdjustOrders !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {machine.autoAdjustOrders !== false ? '已启用' : '已禁用'}
                     </span>
                   </td>
                   <td className="p-2 text-center">
