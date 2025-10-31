@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { orderApi, machineApi } from '../services/api';
 import useOrderStore from '../stores/useOrderStore';
+import { calculateOrderStatus } from '../utils/orderUtils';
 
 /**
  * 工单数据管理Hook - 使用Zustand状态管理
@@ -66,12 +67,33 @@ export const useOrderData = () => {
       
       const data = await orderApi.getAll(params);
       
-      // 如果后端返回分页数据
+      // 获取机台数据用于状态计算
+      let machines = [];
+      try {
+        machines = await machineApi.getAll();
+      } catch (error) {
+        console.warn('获取机台数据失败，使用空数组:', error);
+      }
+      
+      // 处理返回的数据
+      let loadedOrders = [];
       if (data.orders && data.total !== undefined) {
-        setOrdersWithPagination(data.orders, data.total, page);
+        loadedOrders = data.orders;
       } else {
-        // 兼容旧的API格式（返回全部数据）
-        setOrders(Array.isArray(data) ? data : []);
+        loadedOrders = Array.isArray(data) ? data : [];
+      }
+      
+      // 🔥 修复状态丢失bug：重新计算所有工单的status
+      const ordersWithStatus = loadedOrders.map(order => ({
+        ...order,
+        status: calculateOrderStatus(order, machines, loadedOrders)
+      }));
+      
+      // 保存到store
+      if (data.orders && data.total !== undefined) {
+        setOrdersWithPagination(ordersWithStatus, data.total, page);
+      } else {
+        setOrders(ordersWithStatus);
       }
     } catch (err) {
       setError(err.message);
@@ -119,10 +141,12 @@ export const useOrderData = () => {
 
       const originalOrder = orders.find(o => o.id === updatedOrder.id);
       
+      // 获取机台数据
+      const machines = await machineApi.getAll();
+      
       // 如果工单被结束，检查机台配置决定是否调整后续工单
       if (updatedOrder.actualEndDate && !originalOrder?.actualEndDate) {
         try {
-          const machines = await machineApi.getAll();
           const machine = machines.find(m => m.name === updatedOrder.machine);
           
           if (machine && machine.autoAdjustOrders !== false) {
@@ -156,7 +180,13 @@ export const useOrderData = () => {
                 };
                 
                 await orderApi.update(nextOrder.id, adjustedOrder);
-                updateOrderInStore(adjustedOrder);
+                
+                // 🔥 重新计算调整后的工单状态
+                const adjustedOrderWithStatus = {
+                  ...adjustedOrder,
+                  status: calculateOrderStatus(adjustedOrder, machines, orders)
+                };
+                updateOrderInStore(adjustedOrderWithStatus);
                 
                 lastEndDate = newEndDate;
               }
@@ -168,7 +198,13 @@ export const useOrderData = () => {
       }
 
       await orderApi.update(updatedOrder.id, updatedOrder);
-      updateOrderInStore(updatedOrder);
+      
+      // 🔥 重新计算更新后的工单状态
+      const updatedOrderWithStatus = {
+        ...updatedOrder,
+        status: calculateOrderStatus(updatedOrder, machines, orders)
+      };
+      updateOrderInStore(updatedOrderWithStatus);
     } catch (error) {
       console.error('更新工单失败:', error);
       throw error;

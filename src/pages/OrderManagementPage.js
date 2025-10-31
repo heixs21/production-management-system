@@ -203,24 +203,8 @@ const OrderManagementPage = () => {
     return getDateRange();
   }, [selectedTimeRange, customStartDate, customEndDate]);
 
-  // 🔒 修复无限循环：使用深度比较，只在状态值真正改变时更新
-  // 注意：故意不将orders放入依赖数组，因为我们在effect内部读取orders
-  // 这是安全的，因为我们只在status真正改变时才调用setOrders
-  useEffect(() => {
-    const updatedOrders = orders.map(order => {
-      const newStatus = calculateOrderStatus(order, machines, orders);
-      return order.status !== newStatus ? { ...order, status: newStatus } : order;
-    });
-    
-    // 只比较status值的变化，而不是对象引用
-    const hasStatusChanged = updatedOrders.some((order, index) => 
-      order.status !== orders[index]?.status
-    );
-    
-    if (hasStatusChanged) {
-      setOrders(updatedOrders);
-    }
-  }, [machines, setOrders]);
+  // 🔥 移除了原有的状态计算useEffect
+  // 现在loadOrders()会在加载数据后自动计算所有工单的status，避免状态丢失问题
 
   // 工单管理处理函数
   const handleAddOrder = useCallback(async () => {
