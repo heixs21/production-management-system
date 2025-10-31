@@ -104,7 +104,7 @@ export const MachineModal = ({
             <label className="relative inline-flex items-center cursor-pointer">
               <input
                 type="checkbox"
-                checked={machineData.autoAdjustOrders !== false}
+                checked={machineData.autoAdjustOrders === true || machineData.autoAdjustOrders === 1}
                 onChange={(e) => onMachineChange({ ...machineData, autoAdjustOrders: e.target.checked })}
                 className="sr-only peer"
               />
