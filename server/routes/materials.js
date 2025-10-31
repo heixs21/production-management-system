@@ -5,11 +5,42 @@ const { addCompanyFilter } = require('../middleware/companyFilter');
 
 const router = express.Router();
 
-// 物料API
+// 物料API（支持分页）
 router.get('/materials', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
+    const { page, limit } = req.query;
+    
+    // 如果请求分页参数，返回分页数据
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const pageSize = parseInt(limit) || 50;
+      const offset = (pageNum - 1) * pageSize;
+      
+      // 查询总数
+      const [countResult] = await pool.execute(
+        'SELECT COUNT(*) as total FROM materials WHERE companyId = ?',
+        [req.companyId]
+      );
+      const total = countResult[0].total;
+      
+      // 查询分页数据
+      const [rows] = await pool.execute(
+        'SELECT * FROM materials WHERE companyId = ? ORDER BY id LIMIT ? OFFSET ?',
+        [req.companyId, pageSize, offset]
+      );
+      
+      res.json({ 
+        materials: rows, 
+        total, 
+        page: pageNum, 
+        limit: pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      });
+    } else {
+      // 兼容旧版API，返回所有数据
     const [rows] = await pool.execute('SELECT * FROM materials WHERE companyId = ? ORDER BY id', [req.companyId]);
     res.json(rows);
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

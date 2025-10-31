@@ -281,13 +281,25 @@ router.post('/mes/workOrder', async (req, res) => {
 
 router.get('/mes/workOrders', async (req, res) => {
   try {
+    // 检查MES配置是否完整
+    if (!MES_CONFIG.username || !MES_CONFIG.password) {
+      console.log('[MES] MES系统未配置，返回空数据');
+      return res.json({ 
+        success: true, 
+        items: [], 
+        totalCount: 0,
+        message: 'MES系统未配置' 
+      });
+    }
+
     const token = await ensureMesAuth();
     
     const response = await fetch('http://192.168.33.112:43352/api/ExRESTful/mESFrontEnd/workOrder?Filter=&Sorting=&SkipCount=0&MaxResultCount=10', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`
-      }
+      },
+      timeout: 5000  // 5秒超时
     });
 
     if (!response.ok) {
@@ -297,8 +309,15 @@ router.get('/mes/workOrders', async (req, res) => {
     const data = await response.json();
     res.json(data);
   } catch (error) {
-    console.error('MES工单代理请求失败:', error);
-    res.status(500).json({ error: '获取MES工单数据失败: ' + error.message });
+    console.error('MES工单代理请求失败:', error.message);
+    // 返回空数据而不是500错误，避免影响前端页面加载
+    res.json({ 
+      success: false, 
+      items: [], 
+      totalCount: 0,
+      error: 'MES系统暂时不可用',
+      message: error.message 
+    });
   }
 });
 

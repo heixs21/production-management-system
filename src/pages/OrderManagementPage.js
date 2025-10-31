@@ -7,6 +7,10 @@ import CurrentOrdersAnalysis from "../components/CurrentOrdersAnalysis";
 import DateRangeSelector from "../components/DateRangeSelector";
 import GanttChart from "../components/GanttChart";
 import MaterialTaktTable from "../components/MaterialTaktTable";
+import KPICards from "../components/KPICards";
+import { OrderManagementSkeleton } from "../components/Skeleton";
+import { OrdersEmptyState } from "../components/EmptyState";
+import { useToast } from "../components/Toast";
 import {
   ErrorMessage,
   LoadingSpinner,
@@ -33,6 +37,7 @@ import { exportOrdersToExcel, exportGanttChart } from "../utils/exportUtils";
 
 const OrderManagementPage = () => {
   const { user, canPerformAction } = useAuth();
+  const { addToast } = useToast();
   
   // 使用自定义hooks管理数据
   const {
@@ -54,7 +59,8 @@ const OrderManagementPage = () => {
   const {
     machines,
     loading: machinesLoading,
-    error: machinesError
+    error: machinesError,
+    loadMachines
   } = useMachineData();
 
   const {
@@ -65,12 +71,20 @@ const OrderManagementPage = () => {
     updateMaterial,
     deleteMaterial,
     importMaterials,
-    validateMaterial
+    validateMaterial,
+    loadMaterials
   } = useMaterialData();
 
   // UI状态管理
   const loading = ordersLoading || machinesLoading || materialsLoading;
   const error = ordersError || machinesError || materialsError;
+
+  // 初始化加载数据
+  useEffect(() => {
+    loadOrders();
+    loadMachines();
+    loadMaterials();
+  }, [loadOrders, loadMachines, loadMaterials]);
   const [draggedOrder, setDraggedOrder] = useState(null);
   const [lastDragOperation, setLastDragOperation] = useState(null);
   const [selectedMachineGroup, setSelectedMachineGroup] = useState('all');
@@ -189,21 +203,24 @@ const OrderManagementPage = () => {
     return getDateRange();
   }, [selectedTimeRange, customStartDate, customEndDate]);
 
-  // 更新工单状态
+  // 🔒 修复无限循环：使用深度比较，只在状态值真正改变时更新
+  // 注意：故意不将orders放入依赖数组，因为我们在effect内部读取orders
+  // 这是安全的，因为我们只在status真正改变时才调用setOrders
   useEffect(() => {
     const updatedOrders = orders.map(order => {
       const newStatus = calculateOrderStatus(order, machines, orders);
       return order.status !== newStatus ? { ...order, status: newStatus } : order;
     });
     
+    // 只比较status值的变化，而不是对象引用
     const hasStatusChanged = updatedOrders.some((order, index) => 
-      order !== orders[index]
+      order.status !== orders[index]?.status
     );
     
     if (hasStatusChanged) {
       setOrders(updatedOrders);
     }
-  }, [machines, orders, setOrders]);
+  }, [machines, setOrders]);
 
   // 工单管理处理函数
   const handleAddOrder = useCallback(async () => {
@@ -224,10 +241,11 @@ const OrderManagementPage = () => {
         isSubmitted: false,
       });
       setShowAddForm(false);
+      addToast({ type: 'success', message: '✅ 工单添加成功！' });
     } catch (err) {
-      alert(`添加工单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 添加工单失败: ${err.message}` });
     }
-  }, [newOrder, addOrder]);
+  }, [newOrder, addOrder, addToast]);
 
   const handleEditOrder = useCallback((order) => {
     const formatDate = (date) => {
@@ -247,10 +265,11 @@ const OrderManagementPage = () => {
     try {
       await updateOrder(editingOrder);
       setEditingOrder(null);
+      addToast({ type: 'success', message: '✅ 工单更新成功！' });
     } catch (err) {
-      alert(`更新工单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 更新工单失败: ${err.message}` });
     }
-  }, [editingOrder, updateOrder]);
+  }, [editingOrder, updateOrder, addToast]);
 
   const handleDeleteOrder = useCallback((orderId) => {
     if (window.confirm('确定要删除这个工单吗？')) {
@@ -265,7 +284,13 @@ const OrderManagementPage = () => {
 
       if (result.pausedOrders.length > 0) {
         const pausedOrderNames = result.pausedOrders.map(o => o.orderNo).join(', ');
-        alert(`紧急插单成功！已暂停工单：${pausedOrderNames}`);
+        addToast({ 
+          type: 'success', 
+          message: `🚨 紧急插单成功！已暂停工单：${pausedOrderNames}`,
+          duration: 5000
+        });
+      } else {
+        addToast({ type: 'success', message: '🚨 紧急插单成功！' });
       }
 
       setUrgentOrder({
@@ -282,9 +307,9 @@ const OrderManagementPage = () => {
       });
       setShowUrgentForm(false);
     } catch (err) {
-      alert(`紧急插单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 紧急插单失败: ${err.message}` });
     }
-  }, [urgentOrder, addUrgentOrder]);
+  }, [urgentOrder, addUrgentOrder, addToast]);
 
   // 报工处理
   const handleReportWork = useCallback((order, date) => {
@@ -610,11 +635,35 @@ const OrderManagementPage = () => {
     setDraggedOrder(null);
   }, [draggedOrder, dateRange, updateOrder]);
 
+  // 显示加载骨架屏
+  if (loading && orders.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <OrderManagementSkeleton />
+      </div>
+    );
+  }
+
+  // 显示空状态
+  if (!loading && orders.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <OrdersEmptyState onCreateOrder={canPerformAction('order.create') ? () => setShowAddForm(true) : null} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 错误提示和加载状态 */}
+      {/* KPI数据卡片 */}
+      <div className="mb-6">
+        <KPICards orders={orders} machines={machines} />
+      </div>
+
+      {/* 错误提示 */}
       {error && <ErrorMessage message={error} onClose={() => {}} />}
-      <LoadingSpinner loading={loading} />
       
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* 头部 */}

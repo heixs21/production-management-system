@@ -5,9 +5,87 @@ const { addCompanyFilter } = require('../middleware/companyFilter');
 
 const router = express.Router();
 
-// 工单API
+// 工单API（支持分页和过滤）
 router.get('/orders', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
+    const { page, limit, status, machine, searchText } = req.query;
+    
+    // 如果请求分页参数，返回分页数据
+    if (page && limit) {
+      const pageNum = parseInt(page) || 1;
+      const pageSize = parseInt(limit) || 50;
+      const offset = (pageNum - 1) * pageSize;
+      
+      // 构建WHERE条件
+      let whereConditions = ['companyId = ?'];
+      let queryParams = [req.companyId];
+      
+      if (status) {
+        whereConditions.push('status = ?');
+        queryParams.push(status);
+      }
+      
+      if (machine) {
+        whereConditions.push('machine = ?');
+        queryParams.push(machine);
+      }
+      
+      if (searchText) {
+        whereConditions.push('(orderNo LIKE ? OR materialNo LIKE ? OR materialName LIKE ?)');
+        const searchPattern = `%${searchText}%`;
+        queryParams.push(searchPattern, searchPattern, searchPattern);
+      }
+      
+      // 权限过滤
+      if (req.user.role !== 'admin' && req.user.allowedMachines && !req.user.allowedMachines.includes('all')) {
+        const machineList = req.user.allowedMachines.map(() => '?').join(',');
+        whereConditions.push(`machine IN (${machineList})`);
+        queryParams.push(...req.user.allowedMachines);
+      }
+      
+      const whereClause = whereConditions.join(' AND ');
+      
+      // 查询总数
+      const [countResult] = await pool.execute(
+        `SELECT COUNT(*) as total FROM orders WHERE ${whereClause}`,
+        queryParams
+      );
+      const total = countResult[0].total;
+      
+      // 查询分页数据
+      const [rows] = await pool.execute(
+        `SELECT * FROM orders WHERE ${whereClause} ORDER BY machine ASC, startDate ASC, priority ASC LIMIT ? OFFSET ?`,
+        [...queryParams, pageSize, offset]
+      );
+      
+      const orders = rows.map(row => ({
+        ...row,
+        isUrgent: Boolean(row.isUrgent),
+        isPaused: Boolean(row.isPaused),
+        dailyReports: row.dailyReports || {},
+        startDate: row.startDate,
+        expectedEndDate: row.expectedEndDate,
+        delayedExpectedEndDate: row.delayedExpectedEndDate,
+        actualEndDate: row.actualEndDate,
+        pausedDate: row.pausedDate,
+        resumedDate: row.resumedDate,
+        producedDays: row.producedDays || 0,
+        remainingDays: row.remainingDays || 0,
+        originalOrderId: row.originalOrderId || null,
+        orderComponent: row.orderComponent,
+        componentDescription: row.componentDescription,
+        isSubmitted: Boolean(row.isSubmitted)
+      }));
+      
+      res.json({ 
+        orders, 
+        total, 
+        page: pageNum, 
+        limit: pageSize,
+        totalPages: Math.ceil(total / pageSize)
+      });
+    } else {
+      // 兼容旧版API，返回所有数据
     const [rows] = await pool.execute('SELECT * FROM orders WHERE companyId = ? ORDER BY machine ASC, startDate ASC, priority ASC', [req.companyId]);
     
     let orders = rows.map(row => ({
@@ -34,6 +112,7 @@ router.get('/orders', authenticateToken, addCompanyFilter, async (req, res) => {
     }
     
     res.json(orders);
+    }
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

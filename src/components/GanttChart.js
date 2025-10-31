@@ -47,6 +47,67 @@ const GanttChart = ({
       orders.some(order => order.machine === machine.name && !order.actualEndDate)
     );
   }, [machines, selectedGroup, orders]);
+
+  // 🚀 性能优化：预先计算所有格子的工单数据
+  const processedOrdersMap = React.useMemo(() => {
+    const result = {};
+    
+    // 辅助函数：对工单进行分组和排序
+    const groupAndSortOrders = (ordersInCell) => {
+      if (!ordersInCell || ordersInCell.length === 0) return [];
+      
+      // 按工单编号分组
+      const groupedOrders = ordersInCell.reduce((groups, order) => {
+        const orderNo = order.orderNo;
+        if (!groups[orderNo]) {
+          groups[orderNo] = [];
+        }
+        groups[orderNo].push(order);
+        return groups;
+      }, {});
+
+      // 对每个工单组内的订单进行排序
+      Object.keys(groupedOrders).forEach(orderNo => {
+        groupedOrders[orderNo].sort((a, b) => {
+          if (a.isUrgent && !b.isUrgent) return -1;
+          if (!a.isUrgent && b.isUrgent) return 1;
+          if (a.priority !== b.priority) return a.priority - b.priority;
+          const aCompleted = !!a.actualEndDate;
+          const bCompleted = !!b.actualEndDate;
+          if (aCompleted && !bCompleted) return 1;
+          if (!aCompleted && bCompleted) return -1;
+          return 0;
+        });
+      });
+
+      // 对工单组进行排序
+      const sortedGroups = Object.entries(groupedOrders).sort(([, groupA], [, groupB]) => {
+        const earliestStartA = Math.min(...groupA.map(o => new Date(o.startDate).getTime()));
+        const earliestStartB = Math.min(...groupB.map(o => new Date(o.startDate).getTime()));
+        
+        if (earliestStartA !== earliestStartB) {
+          return earliestStartA - earliestStartB;
+        }
+        
+        const minPriorityA = Math.min(...groupA.map(o => o.isUrgent ? 0 : o.priority));
+        const minPriorityB = Math.min(...groupB.map(o => o.isUrgent ? 0 : o.priority));
+        return minPriorityA - minPriorityB;
+      });
+
+      return sortedGroups;
+    };
+
+    // 预先计算所有机台-日期组合的数据
+    filteredMachines.forEach(machine => {
+      dateRange.forEach(date => {
+        const key = `${machine.name}-${date}`;
+        const ordersInCell = getOrdersForMachineAndDate(orders, machine.name, date);
+        result[key] = groupAndSortOrders(ordersInCell);
+      });
+    });
+    
+    return result;
+  }, [filteredMachines, dateRange, orders]);
   
   // 自动滚动到今天
   useEffect(() => {
@@ -186,7 +247,8 @@ const GanttChart = ({
                 {/* 日期格子 */}
                 {dateRange.map((date, dateIndex) => {
                   const isWeekend = new Date(date).getDay() === 0 || new Date(date).getDay() === 6;
-                  const ordersInCell = getOrdersForMachineAndDate(orders, machine.name, date);
+                  // 🚀 使用预计算的数据而不是即时计算
+                  const sortedGroups = processedOrdersMap[`${machine.name}-${date}`] || [];
                   
                   return (
                     <div
@@ -198,57 +260,9 @@ const GanttChart = ({
                       onDragOver={onDragOver}
                       onDrop={(e) => onDrop(e, machine.name, dateIndex)}
                     >
-                      {/* 工单卡片 - 优化排序和分组 */}
+                      {/* 工单卡片 - 使用预处理的数据 */}
                       <div className="space-y-1">
-                        {(() => {
-                          // 先按工单编号分组
-                          const groupedOrders = ordersInCell.reduce((groups, order) => {
-                            const orderNo = order.orderNo;
-                            if (!groups[orderNo]) {
-                              groups[orderNo] = [];
-                            }
-                            groups[orderNo].push(order);
-                            return groups;
-                          }, {});
-
-                          // 对每个工单组内的订单进行排序：紧急 > 优先级 > 状态
-                          Object.keys(groupedOrders).forEach(orderNo => {
-                            groupedOrders[orderNo].sort((a, b) => {
-                              // 紧急工单优先
-                              if (a.isUrgent && !b.isUrgent) return -1;
-                              if (!a.isUrgent && b.isUrgent) return 1;
-
-                              // 按优先级排序（数字越小优先级越高）
-                              if (a.priority !== b.priority) return a.priority - b.priority;
-
-                              // 已完成的排在后面
-                              const aCompleted = !!a.actualEndDate;
-                              const bCompleted = !!b.actualEndDate;
-                              if (aCompleted && !bCompleted) return 1;
-                              if (!aCompleted && bCompleted) return -1;
-
-                              return 0;
-                            });
-                          });
-
-                          // 对工单组进行排序：先按开始日期，再按优先级
-                          const sortedGroups = Object.entries(groupedOrders).sort(([, groupA], [, groupB]) => {
-                            // 获取每组最早的开始日期
-                            const earliestStartA = Math.min(...groupA.map(o => new Date(o.startDate).getTime()));
-                            const earliestStartB = Math.min(...groupB.map(o => new Date(o.startDate).getTime()));
-                            
-                            // 先按开始日期排序
-                            if (earliestStartA !== earliestStartB) {
-                              return earliestStartA - earliestStartB;
-                            }
-                            
-                            // 开始日期相同时，按优先级排序
-                            const minPriorityA = Math.min(...groupA.map(o => o.isUrgent ? 0 : o.priority));
-                            const minPriorityB = Math.min(...groupB.map(o => o.isUrgent ? 0 : o.priority));
-                            return minPriorityA - minPriorityB;
-                          });
-
-                          return sortedGroups.map(([orderNo, orderGroup]) => {
+                        {sortedGroups.map(([orderNo, orderGroup]) => {
                             const groupColor = getOrderGroupColor(orderNo);
 
                             return (
@@ -346,8 +360,7 @@ const GanttChart = ({
                                 </div>
                               </div>
                             );
-                          });
-                        })()}
+                          })}
                       </div>
                     </div>
                   );

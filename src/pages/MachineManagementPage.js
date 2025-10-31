@@ -27,12 +27,18 @@ const MachineManagementPage = () => {
     error: machinesError,
     addMachine,
     updateMachine,
-    deleteMachine
+    deleteMachine,
+    loadMachines
   } = useMachineData();
 
   // UI状态管理
   const loading = machinesLoading;
   const error = machinesError;
+
+  // 初始化加载数据
+  useEffect(() => {
+    loadMachines();
+  }, [loadMachines]);
 
   // 弹窗状态
   const [showMachineForm, setShowMachineForm] = useState(false);
