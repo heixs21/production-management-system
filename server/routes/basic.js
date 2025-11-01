@@ -60,7 +60,12 @@ router.post('/auth/login', async (req, res) => {
 router.get('/machines', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
     const [rows] = await pool.execute('SELECT * FROM machines WHERE companyId = ? ORDER BY id', [req.companyId]);
-    res.json(rows);
+    // 将autoAdjustOrders转换为布尔值，确保前后端数据类型一致
+    const machines = rows.map(machine => ({
+      ...machine,
+      autoAdjustOrders: machine.autoAdjustOrders === 1
+    }));
+    res.json(machines);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

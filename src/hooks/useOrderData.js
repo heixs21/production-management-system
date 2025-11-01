@@ -149,7 +149,7 @@ export const useOrderData = () => {
         try {
           const machine = machines.find(m => m.name === updatedOrder.machine);
           
-          if (machine && machine.autoAdjustOrders !== false) {
+          if (machine && (machine.autoAdjustOrders === true || machine.autoAdjustOrders === 1)) {
             const sameMachineOrders = orders
               .filter(o => 
                 o.machine === updatedOrder.machine && 

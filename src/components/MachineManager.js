@@ -133,9 +133,9 @@ const MachineManager = ({
                   </td>
                   <td className="p-2 text-center">
                     <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      machine.autoAdjustOrders !== false ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                      (machine.autoAdjustOrders === true || machine.autoAdjustOrders === 1) ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                     }`}>
-                      {machine.autoAdjustOrders !== false ? '已启用' : '已禁用'}
+                      {(machine.autoAdjustOrders === true || machine.autoAdjustOrders === 1) ? '已启用' : '已禁用'}
                     </span>
                   </td>
                   <td className="p-2 text-center">
