@@ -298,15 +298,24 @@ async function initDatabase() {
 
     // 添加 requiresProductionReport 字段（如果不存在）
     try {
-      await connection.execute(`
-        ALTER TABLE machines 
-        ADD COLUMN IF NOT EXISTS requiresProductionReport BOOLEAN DEFAULT FALSE
+      // 先检查字段是否存在
+      const [columns] = await connection.execute(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'machines' 
+        AND COLUMN_NAME = 'requiresProductionReport'
       `);
-    } catch (error) {
-      // 忽略字段已存在的错误
-      if (!error.message.includes('Duplicate column')) {
-        console.log('添加 requiresProductionReport 字段:', error.message);
+      
+      if (columns.length === 0) {
+        await connection.execute(`
+          ALTER TABLE machines 
+          ADD COLUMN requiresProductionReport BOOLEAN DEFAULT FALSE AFTER autoAdjustOrders
+        `);
+        console.log('✅ 已添加 requiresProductionReport 字段');
       }
+    } catch (error) {
+      console.log('❌ 添加 requiresProductionReport 字段失败:', error.message);
     }
 
     // 为现有机台创建默认班次（只在不存在时创建）
