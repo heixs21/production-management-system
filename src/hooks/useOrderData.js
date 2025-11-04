@@ -319,53 +319,37 @@ export const useOrderData = () => {
     }
   }, [orders, validateOrder, addUrgentOrderToStore]);
 
-  // 恢复暂停的工单
-  const resumeOrder = useCallback(async (orderId, newStartDate) => {
+  // 恢复暂停的工单（优化版：直接更新原工单，不创建新工单，保留原始开始日期）
+  const resumeOrder = useCallback(async (orderId, resumeDate) => {
     try {
       const order = orders.find(o => o.id === orderId);
       if (!order || !order.isPaused) return;
 
-      const resumeDate = new Date(newStartDate);
-      const newEndDate = new Date(resumeDate);
+      // 计算新的结束日期（基于剩余天数）
+      const newResumeDate = new Date(resumeDate);
+      const newEndDate = new Date(newResumeDate);
       newEndDate.setDate(newEndDate.getDate() + (order.remainingDays || 1) - 1);
 
-      const resumeOrderData = {
-        machine: order.machine,
-        orderNo: `${order.orderNo}-续`,
-        materialNo: order.materialNo,
-        materialName: order.materialName,
-        quantity: order.quantity - (order.reportedQuantity || 0),
-        priority: order.priority,
-        startDate: newStartDate,
-        expectedEndDate: newEndDate.toISOString().split('T')[0],
-        actualEndDate: null,
-        reportedQuantity: 0,
-        dailyReports: {},
-        status: "生产中",
-        isUrgent: order.isUrgent,
-        isPaused: false,
-        pausedDate: null,
-        resumedDate: newStartDate,
-        delayReason: `从工单${order.orderNo}恢复生产`,
-        originalOrderId: orderId
-      };
-
-      const newOrder = await orderApi.create(resumeOrderData);
-      const updatedOriginalOrder = {
+      // 直接更新原工单，恢复生产
+      // 关键：保持原始 startDate 不变！
+      const updatedOrder = {
         ...order,
-        status: "暂停完成",
-        actualEndDate: order.pausedDate
+        isPaused: false,
+        // pausedDate: 保留暂停日期，用于标记暂停时间段
+        resumedDate: resumeDate, // 记录恢复日期
+        expectedEndDate: newEndDate.toISOString().split('T')[0],
+        status: "生产中",
+        delayReason: `暂停时段: ${order.pausedDate} 至 ${resumeDate}` + (order.delayReason ? ` | 原因: ${order.delayReason}` : ''),
+        // 保留原始 startDate、已报工数据和剩余天数
       };
       
-      await orderApi.update(orderId, updatedOriginalOrder);
-      
-      addOrderToStore(newOrder);
-      updateOrderInStore(updatedOriginalOrder);
+      await orderApi.update(orderId, updatedOrder);
+      resumeOrderInStore(orderId, resumeDate);
     } catch (error) {
       console.error('恢复工单失败:', error);
       throw error;
     }
-  }, [orders, addOrderToStore, updateOrderInStore]);
+  }, [orders, resumeOrderInStore]);
 
   // 暂停工单
   const pauseOrder = useCallback(async (orderId, pauseDate) => {

@@ -46,12 +46,26 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
       // 确保reportsData是数组
       const reports = Array.isArray(reportsData) ? reportsData : [];
       
-      // 生成日期范围（从工单开始日期到今天）
+      // 生成日期范围（从工单开始日期到今天，排除暂停期间）
       const startDate = new Date(order.startDate);
       const today = new Date();
       const dateRange = [];
       
+      // 获取暂停时间段
+      const pausedStart = order.pausedDate ? new Date(order.pausedDate) : null;
+      const resumedDate = order.resumedDate ? new Date(order.resumedDate) : null;
+      
       for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+        const currentDate = new Date(d);
+        
+        // 如果有暂停时间段，跳过暂停期间的日期
+        if (pausedStart && resumedDate) {
+          // 如果当前日期在暂停时段内（pausedStart 到 resumedDate 之间，不含 resumedDate），则跳过
+          if (currentDate >= pausedStart && currentDate < resumedDate) {
+            continue;
+          }
+        }
+        
         dateRange.push(new Date(d).toISOString().split('T')[0]);
       }
 
@@ -191,6 +205,26 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
             <X className="w-5 h-5" />
           </button>
         </div>
+
+        {/* 暂停信息提示 */}
+        {order?.pausedDate && order?.resumedDate && (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+            <div className="flex items-start">
+              <span className="text-yellow-600 text-lg mr-2">⏸️</span>
+              <div className="flex-1 text-sm">
+                <div className="font-medium text-yellow-900">工单暂停记录</div>
+                <div className="text-yellow-700 mt-1">
+                  暂停时段：<span className="font-medium">{order.pausedDate}</span> 至 <span className="font-medium">{order.resumedDate}</span>（此期间日期已自动隐藏）
+                </div>
+                {order.delayReason && (
+                  <div className="text-yellow-600 text-xs mt-1">
+                    备注：{order.delayReason}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {loading ? (
           <div className="text-center py-8">加载中...</div>

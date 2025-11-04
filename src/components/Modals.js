@@ -298,11 +298,28 @@ export const OrderModal = ({
             className="w-full p-2 border rounded"
           >
             <option value="">选择机台</option>
-            {machines.map(machine => (
-              <option key={machine.id} value={machine.name}>
-                {machine.name} ({machine.status})
-              </option>
-            ))}
+            {(() => {
+              // 按机台组分组
+              const machineGroups = machines.reduce((groups, machine) => {
+                const group = machine.machineGroup || '未分组';
+                if (!groups[group]) {
+                  groups[group] = [];
+                }
+                groups[group].push(machine);
+                return groups;
+              }, {});
+
+              // 渲染分组选项
+              return Object.entries(machineGroups).map(([groupName, groupMachines]) => (
+                <optgroup key={groupName} label={`📁 ${groupName}`}>
+                  {groupMachines.map(machine => (
+                    <option key={machine.id} value={machine.name}>
+                      {machine.name} ({machine.status})
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()}
           </select>
 
           <div className="relative">
@@ -603,11 +620,28 @@ export const UrgentOrderModal = ({
             className="w-full p-2 border rounded border-red-200"
           >
             <option value="">选择机台</option>
-            {machines.map(machine => (
-              <option key={machine.id} value={machine.name}>
-                {machine.name} ({machine.status})
-              </option>
-            ))}
+            {(() => {
+              // 按机台组分组
+              const machineGroups = machines.reduce((groups, machine) => {
+                const group = machine.machineGroup || '未分组';
+                if (!groups[group]) {
+                  groups[group] = [];
+                }
+                groups[group].push(machine);
+                return groups;
+              }, {});
+
+              // 渲染分组选项
+              return Object.entries(machineGroups).map(([groupName, groupMachines]) => (
+                <optgroup key={groupName} label={`📁 ${groupName}`}>
+                  {groupMachines.map(machine => (
+                    <option key={machine.id} value={machine.name}>
+                      {machine.name} ({machine.status})
+                    </option>
+                  ))}
+                </optgroup>
+              ));
+            })()}
           </select>
 
           <div className="relative">
