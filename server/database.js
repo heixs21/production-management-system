@@ -139,6 +139,7 @@ async function initDatabase() {
         status VARCHAR(50) DEFAULT '正常',
         oee DECIMAL(3,2) DEFAULT 0.85,
         coefficient DECIMAL(5,2) DEFAULT 1.00,
+        requiresProductionReport BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
@@ -294,6 +295,19 @@ async function initDatabase() {
     }
 
 
+
+    // 添加 requiresProductionReport 字段（如果不存在）
+    try {
+      await connection.execute(`
+        ALTER TABLE machines 
+        ADD COLUMN IF NOT EXISTS requiresProductionReport BOOLEAN DEFAULT FALSE
+      `);
+    } catch (error) {
+      // 忽略字段已存在的错误
+      if (!error.message.includes('Duplicate column')) {
+        console.log('添加 requiresProductionReport 字段:', error.message);
+      }
+    }
 
     // 为现有机台创建默认班次（只在不存在时创建）
     const [machines] = await connection.execute('SELECT id FROM machines');

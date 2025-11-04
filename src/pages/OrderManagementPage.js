@@ -97,6 +97,7 @@ const OrderManagementPage = () => {
   const [showReportWorkModal, setShowReportWorkModal] = useState(false);
   const [showFinishOrderModal, setShowFinishOrderModal] = useState(false);
   const [finishingOrder, setFinishingOrder] = useState(null);
+  const [productionReportOrder, setProductionReportOrder] = useState(null);
 
   const [showSubmitWorkOrderModal, setShowSubmitWorkOrderModal] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(null);
@@ -327,6 +328,13 @@ const OrderManagementPage = () => {
       alert(`结束工单失败: ${err.message}`);
     }
   }, [finishingOrder, updateOrder]);
+
+  // 产量上报处理函数
+  const handleProductionReport = useCallback((order) => {
+    setProductionReportOrder(order);
+    // 这里可以打开产量上报弹窗，如果OrderManagementPage有相关的弹窗状态
+    // 暂时只设置状态，具体的弹窗在OrderManagement组件中处理
+  }, []);
 
 
 
@@ -818,8 +826,10 @@ const OrderManagementPage = () => {
       <FinishOrderModal
         show={showFinishOrderModal}
         order={finishingOrder}
+        machines={machines}
         onConfirm={handleConfirmFinishOrder}
         onClose={() => setShowFinishOrderModal(false)}
+        onProductionReport={handleProductionReport}
       />
 
 

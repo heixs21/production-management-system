@@ -388,6 +388,12 @@ const App = () => {
     }
   }, [finishingOrder, updateOrder]);
 
+  // 产量上报处理（App.js中暂时不实现具体逻辑）
+  const handleProductionReport = useCallback((order) => {
+    console.log('产量上报:', order);
+    // 可以在这里添加具体的产量上报逻辑
+  }, []);
+
   // 延期工单处理
   const handleDelayOrder = useCallback((order) => {
     setDelayingOrder(order);
@@ -885,8 +891,10 @@ const App = () => {
       <FinishOrderModal
         show={showFinishOrderModal}
         order={finishingOrder}
+        machines={machines}
         onConfirm={handleConfirmFinishOrder}
         onClose={() => setShowFinishOrderModal(false)}
+        onProductionReport={handleProductionReport}
       />
 
       <DelayOrderModal

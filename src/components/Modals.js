@@ -111,6 +111,21 @@ export const MachineModal = ({
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
           </div>
+          <div className="flex items-center justify-between p-3 border rounded bg-gray-50">
+            <div>
+              <label className="text-sm font-medium text-gray-700">需要产量上报</label>
+              <p className="text-xs text-gray-500 mt-1">结束工单时检查是否已完成产量上报</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={machineData.requiresProductionReport === true || machineData.requiresProductionReport === 1}
+                onChange={(e) => onMachineChange({ ...machineData, requiresProductionReport: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
         </div>
         <div className="flex justify-end gap-2 mt-4">
           <button
@@ -1009,10 +1024,12 @@ export const MaterialModal = ({
 };
 
 // 工单结束模态框
-export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
+export const FinishOrderModal = ({ show, order, machines = [], onConfirm, onClose, onProductionReport }) => {
   const [actualEndDate, setActualEndDate] = useState('');
   const [totalReportedQuantity, setTotalReportedQuantity] = useState(0);
   const [errors, setErrors] = useState([]);
+  const [warnings, setWarnings] = useState([]);
+  const [productionReportCheck, setProductionReportCheck] = useState({ hasReports: false, loading: false });
 
   useEffect(() => {
     if (show && order) {
@@ -1023,8 +1040,58 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
       // 设置当前已报工数量
       setTotalReportedQuantity(order.reportedQuantity || 0);
       setErrors([]);
+      setWarnings([]);
+      
+      // 检查是否需要产量上报
+      checkProductionReport(today);
     }
   }, [show, order]);
+
+  // 当结束日期改变时，重新检查该日期的产量上报
+  useEffect(() => {
+    if (show && order && actualEndDate) {
+      checkProductionReport(actualEndDate);
+    }
+  }, [actualEndDate]);
+
+  const checkProductionReport = async (checkDate) => {
+    if (!order || !machines.length || !checkDate) return;
+    
+    const machine = machines.find(m => m.name === order.machine);
+    if (!machine) return;
+    
+    // 如果该机台不需要产量上报，直接返回
+    if (!machine.requiresProductionReport && machine.requiresProductionReport !== 1) {
+      setProductionReportCheck({ hasReports: true, loading: false });
+      setWarnings([]);
+      return;
+    }
+    
+    // 检查指定日期是否已有产量上报
+    try {
+      setProductionReportCheck({ hasReports: false, loading: true });
+      const token = localStorage.getItem('token');
+      const serverUrl = `http://${window.location.hostname}:12454`;
+      
+      const response = await fetch(`${serverUrl}/api/production-reports/${order.id}/check-date?date=${checkDate}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setProductionReportCheck({ hasReports: data.hasReports, loading: false });
+        
+        if (!data.hasReports) {
+          setWarnings([`⚠️ 该产线需要每日产量上报，但【${checkDate}】当天尚未上报产量。\n建议先完成当日产量上报后再结束工单，避免遗漏数据。`]);
+        } else {
+          setWarnings([]); // 清除警告
+        }
+      }
+    } catch (error) {
+      console.error('检查产量上报失败:', error);
+      setProductionReportCheck({ hasReports: false, loading: false });
+    }
+  };
 
   const validateAndSubmit = () => {
     const newErrors = [];
@@ -1074,6 +1141,44 @@ export const FinishOrderModal = ({ show, order, onConfirm, onClose }) => {
             {errors.map((error, index) => (
               <div key={index} className="text-red-600 text-sm">{error}</div>
             ))}
+          </div>
+        )}
+
+        {warnings.length > 0 && (
+          <div className="bg-orange-50 border-2 border-orange-300 p-4 rounded-lg mb-4">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 text-2xl mr-3">⚠️</div>
+              <div className="flex-1">
+                <div className="font-semibold text-orange-900 mb-2">产量上报提醒</div>
+                {warnings.map((warning, index) => (
+                  <div key={index} className="text-orange-800 text-sm mb-2 whitespace-pre-line">
+                    该产线需要每日产量上报，但【{actualEndDate}】当天尚未上报产量。
+                  </div>
+                ))}
+                <div className="text-orange-700 text-xs mt-1">
+                  💡 建议：先完成当日产量上报后再结束工单，避免遗漏最后一天的生产数据
+                </div>
+              </div>
+            </div>
+            {onProductionReport && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => {
+                    onClose();
+                    onProductionReport(order);
+                  }}
+                  className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-medium text-sm"
+                >
+                  📊 立即去上报
+                </button>
+                <button
+                  onClick={() => setWarnings([])}
+                  className="px-4 py-2 border border-orange-300 text-orange-700 rounded-lg hover:bg-orange-100 text-sm"
+                >
+                  我知道了
+                </button>
+              </div>
+            )}
           </div>
         )}
 

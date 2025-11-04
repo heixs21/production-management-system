@@ -19,6 +19,59 @@ router.get('/production-reports/:orderId', authenticateToken, async (req, res) =
   }
 });
 
+// 检查产量上报情况（整个工单）
+router.get('/production-reports/:orderId/check', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const [reports] = await pool.execute(`
+      SELECT COUNT(*) as reportCount, SUM(quantity) as totalQuantity 
+      FROM production_reports 
+      WHERE orderId = ? AND quantity > 0
+    `, [orderId]);
+    
+    const hasReports = reports[0].reportCount > 0;
+    const totalQuantity = reports[0].totalQuantity || 0;
+    
+    res.json({ 
+      hasReports, 
+      reportCount: reports[0].reportCount,
+      totalQuantity 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// 检查指定日期的产量上报情况
+router.get('/production-reports/:orderId/check-date', authenticateToken, async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { date } = req.query;
+    
+    if (!date) {
+      return res.status(400).json({ error: '缺少日期参数' });
+    }
+    
+    const [reports] = await pool.execute(`
+      SELECT COUNT(*) as reportCount, SUM(quantity) as totalQuantity 
+      FROM production_reports 
+      WHERE orderId = ? AND reportDate = ? AND quantity > 0
+    `, [orderId, date]);
+    
+    const hasReports = reports[0].reportCount > 0;
+    const totalQuantity = reports[0].totalQuantity || 0;
+    
+    res.json({ 
+      hasReports, 
+      reportCount: reports[0].reportCount,
+      totalQuantity,
+      date 
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post('/production-reports', authenticateToken, async (req, res) => {
   try {
     const { orderId, shiftName, reportDate, quantity } = req.body;
