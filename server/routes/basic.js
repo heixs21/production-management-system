@@ -73,11 +73,12 @@ router.get('/machines', authenticateToken, addCompanyFilter, async (req, res) =>
 
 router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
-    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport } = req.body;
     const autoAdjustValue = autoAdjustOrders === false ? 0 : 1;
+    const requiresReportValue = requiresProductionReport ? 1 : 0;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, autoAdjustValue, req.companyId]
+      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, autoAdjustValue, requiresReportValue, req.companyId]
     );
     
     // 为新机台创建默认班次
@@ -92,7 +93,8 @@ router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) =
       status: status || '正常',
       oee: oee || 0.85,
       coefficient: coefficient || 1.00,
-      autoAdjustOrders: autoAdjustValue === 1
+      autoAdjustOrders: autoAdjustValue === 1,
+      requiresProductionReport: requiresReportValue === 1
     });
   } catch (error) {
     console.error('添加机台失败:', error);
@@ -102,11 +104,12 @@ router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) =
 
 router.put('/machines/:id', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
-    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport } = req.body;
     const autoAdjustValue = autoAdjustOrders === false ? 0 : 1;
+    const requiresReportValue = requiresProductionReport ? 1 : 0;
     await pool.execute(
-      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ? WHERE id = ? AND companyId = ?',
-      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustValue, req.params.id, req.companyId]
+      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ?, requiresProductionReport = ? WHERE id = ? AND companyId = ?',
+      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustValue, requiresReportValue, req.params.id, req.companyId]
     );
     res.json({ success: true });
   } catch (error) {
