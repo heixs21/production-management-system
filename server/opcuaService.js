@@ -32,7 +32,14 @@ class OPCUAManager {
 
   // 连接到 OPC UA 服务器
   async connectMachine(machineConfig) {
-    const { id, opcuaEndpoint, opcuaNodeId, name } = machineConfig;
+    const {
+      id,
+      opcuaEndpoint,
+      opcuaNodeId,
+      name,
+      opcuaUsername,
+      opcuaPassword,
+    } = machineConfig;
 
     if (!opcuaEndpoint || !opcuaNodeId) {
       throw new Error("OPC UA 配置不完整");
@@ -55,8 +62,20 @@ class OPCUAManager {
       await client.connect(opcuaEndpoint);
       console.log(`✅ 已连接到机台 ${name} 的 OPC UA 服务器: ${opcuaEndpoint}`);
 
+      // 准备用户身份信息
+      let userIdentity = null;
+      if (opcuaUsername && opcuaPassword) {
+        userIdentity = {
+          userName: opcuaUsername,
+          password: opcuaPassword,
+        };
+        console.log(`🔐 使用用户名认证: ${opcuaUsername}`);
+      } else {
+        console.log(`🔓 使用匿名认证`);
+      }
+
       // 创建会话
-      const session = await client.createSession();
+      const session = await client.createSession(userIdentity);
       console.log(`✅ 已创建 OPC UA 会话: ${name}`);
 
       // 创建订阅
@@ -225,7 +244,8 @@ class OPCUAManager {
 
   // 读取单个值（不订阅）
   async readNodeValue(machineConfig) {
-    const { opcuaEndpoint, opcuaNodeId } = machineConfig;
+    const { opcuaEndpoint, opcuaNodeId, opcuaUsername, opcuaPassword } =
+      machineConfig;
 
     const client = OPCUAClient.create({
       applicationName: "Production Management System",
@@ -237,7 +257,17 @@ class OPCUAManager {
 
     try {
       await client.connect(opcuaEndpoint);
-      const session = await client.createSession();
+
+      // 准备用户身份信息
+      let userIdentity = null;
+      if (opcuaUsername && opcuaPassword) {
+        userIdentity = {
+          userName: opcuaUsername,
+          password: opcuaPassword,
+        };
+      }
+
+      const session = await client.createSession(userIdentity);
 
       const dataValue = await session.read({
         nodeId: opcuaNodeId,

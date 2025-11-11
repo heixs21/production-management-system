@@ -1,13 +1,21 @@
-import React, { useState, useEffect } from 'react';
-import { Settings, Play, Square, TestTube, Wifi, WifiOff, Activity } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import {
+  Settings,
+  Play,
+  Square,
+  TestTube,
+  Wifi,
+  WifiOff,
+  Activity,
+} from "lucide-react";
 
 const OPCUAConfig = ({ machineId, machineName, onClose }) => {
   const [config, setConfig] = useState({
     opcuaEnabled: false,
-    opcuaEndpoint: '',
-    opcuaNodeId: '',
-    opcuaUsername: '',
-    opcuaPassword: ''
+    opcuaEndpoint: "",
+    opcuaNodeId: "",
+    opcuaUsername: "",
+    opcuaPassword: "",
   });
   const [loading, setLoading] = useState(false);
   const [testing, setTesting] = useState(false);
@@ -24,49 +32,58 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
 
   const loadConfig = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/machines/${machineId}/opcua-config`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE}/api/machines/${machineId}/opcua-config`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setConfig(data);
       }
     } catch (error) {
-      console.error('加载配置失败:', error);
+      console.error("加载配置失败:", error);
     }
   };
 
   const loadConnectionStatus = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/machines/${machineId}/opcua-status`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE}/api/machines/${machineId}/opcua-status`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
       if (response.ok) {
         const data = await response.json();
         setConnectionStatus(data);
       }
     } catch (error) {
-      console.error('加载连接状态失败:', error);
+      console.error("加载连接状态失败:", error);
     }
   };
 
   const handleSave = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/machines/${machineId}/opcua-config`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(config)
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE}/api/machines/${machineId}/opcua-config`,
+        {
+          method: "PUT",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(config),
+        }
+      );
 
       if (response.ok) {
-        alert('配置已保存');
+        alert("配置已保存");
         loadConnectionStatus();
       } else {
         const error = await response.json();
@@ -83,17 +100,19 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
     setTesting(true);
     setTestResult(null);
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem("token");
       const response = await fetch(`${API_BASE}/api/machines/opcua-test`, {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           opcuaEndpoint: config.opcuaEndpoint,
-          opcuaNodeId: config.opcuaNodeId
-        })
+          opcuaNodeId: config.opcuaNodeId,
+          opcuaUsername: config.opcuaUsername || undefined,
+          opcuaPassword: config.opcuaPassword || undefined,
+        }),
       });
 
       const result = await response.json();
@@ -108,14 +127,17 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
   const handleConnect = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/machines/${machineId}/opcua-connect`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE}/api/machines/${machineId}/opcua-connect`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (response.ok) {
-        alert('已连接到 OPC UA 服务器');
+        alert("已连接到 OPC UA 服务器");
         loadConnectionStatus();
       } else {
         const error = await response.json();
@@ -131,14 +153,17 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
   const handleDisconnect = async () => {
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`${API_BASE}/api/machines/${machineId}/opcua-disconnect`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${API_BASE}/api/machines/${machineId}/opcua-disconnect`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
       if (response.ok) {
-        alert('已断开连接');
+        alert("已断开连接");
         loadConnectionStatus();
       } else {
         const error = await response.json();
@@ -164,7 +189,10 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
                 <p className="text-sm text-gray-600">{machineName}</p>
               </div>
             </div>
-            <button onClick={onClose} className="text-gray-500 hover:text-gray-700">
+            <button
+              onClick={onClose}
+              className="text-gray-500 hover:text-gray-700"
+            >
               ✕
             </button>
           </div>
@@ -182,11 +210,14 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
                 )}
                 <div>
                   <div className="font-medium">
-                    {connectionStatus.connected ? '已连接' : '未连接'}
+                    {connectionStatus.connected ? "已连接" : "未连接"}
                   </div>
                   {connectionStatus.lastUpdate && (
                     <div className="text-xs text-gray-500">
-                      最后更新: {new Date(connectionStatus.lastUpdate).toLocaleString('zh-CN')}
+                      最后更新:{" "}
+                      {new Date(connectionStatus.lastUpdate).toLocaleString(
+                        "zh-CN"
+                      )}
                     </div>
                   )}
                 </div>
@@ -224,24 +255,32 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <div>
                     <span className="text-gray-600">状态:</span>
-                    <span className="ml-2 font-medium">{connectionStatus.realtimeData.status || '-'}</span>
+                    <span className="ml-2 font-medium">
+                      {connectionStatus.realtimeData.status || "-"}
+                    </span>
                   </div>
                   {connectionStatus.realtimeData.temperature && (
                     <div>
                       <span className="text-gray-600">温度:</span>
-                      <span className="ml-2 font-medium">{connectionStatus.realtimeData.temperature}°C</span>
+                      <span className="ml-2 font-medium">
+                        {connectionStatus.realtimeData.temperature}°C
+                      </span>
                     </div>
                   )}
                   {connectionStatus.realtimeData.speed && (
                     <div>
                       <span className="text-gray-600">速度:</span>
-                      <span className="ml-2 font-medium">{connectionStatus.realtimeData.speed}</span>
+                      <span className="ml-2 font-medium">
+                        {connectionStatus.realtimeData.speed}
+                      </span>
                     </div>
                   )}
                   {connectionStatus.realtimeData.errorCode && (
                     <div>
                       <span className="text-gray-600">错误码:</span>
-                      <span className="ml-2 font-medium text-red-600">{connectionStatus.realtimeData.errorCode}</span>
+                      <span className="ml-2 font-medium text-red-600">
+                        {connectionStatus.realtimeData.errorCode}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -258,7 +297,9 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             <input
               type="checkbox"
               checked={config.opcuaEnabled}
-              onChange={(e) => setConfig({ ...config, opcuaEnabled: e.target.checked })}
+              onChange={(e) =>
+                setConfig({ ...config, opcuaEnabled: e.target.checked })
+              }
               className="w-5 h-5"
             />
           </div>
@@ -271,11 +312,15 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             <input
               type="text"
               value={config.opcuaEndpoint}
-              onChange={(e) => setConfig({ ...config, opcuaEndpoint: e.target.value })}
+              onChange={(e) =>
+                setConfig({ ...config, opcuaEndpoint: e.target.value })
+              }
               placeholder="opc.tcp://192.168.1.100:4840"
               className="w-full p-2 border rounded"
             />
-            <p className="text-xs text-gray-500 mt-1">例: opc.tcp://192.168.1.100:4840</p>
+            <p className="text-xs text-gray-500 mt-1">
+              例: opc.tcp://192.168.1.100:4840
+            </p>
           </div>
 
           {/* 节点ID */}
@@ -286,11 +331,15 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             <input
               type="text"
               value={config.opcuaNodeId}
-              onChange={(e) => setConfig({ ...config, opcuaNodeId: e.target.value })}
+              onChange={(e) =>
+                setConfig({ ...config, opcuaNodeId: e.target.value })
+              }
               placeholder="ns=2;s=Machine.Status"
               className="w-full p-2 border rounded"
             />
-            <p className="text-xs text-gray-500 mt-1">例: ns=2;s=Machine.Status 或 ns=2;i=1001</p>
+            <p className="text-xs text-gray-500 mt-1">
+              例: ns=2;s=Machine.Status 或 ns=2;i=1001
+            </p>
           </div>
 
           {/* 用户名（可选） */}
@@ -301,7 +350,9 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             <input
               type="text"
               value={config.opcuaUsername}
-              onChange={(e) => setConfig({ ...config, opcuaUsername: e.target.value })}
+              onChange={(e) =>
+                setConfig({ ...config, opcuaUsername: e.target.value })
+              }
               placeholder="留空表示匿名连接"
               className="w-full p-2 border rounded"
             />
@@ -315,7 +366,9 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             <input
               type="password"
               value={config.opcuaPassword}
-              onChange={(e) => setConfig({ ...config, opcuaPassword: e.target.value })}
+              onChange={(e) =>
+                setConfig({ ...config, opcuaPassword: e.target.value })
+              }
               placeholder="留空表示不修改"
               className="w-full p-2 border rounded"
             />
@@ -328,22 +381,35 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             className="w-full px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 disabled:opacity-50 flex items-center justify-center space-x-2"
           >
             <TestTube className="w-4 h-4" />
-            <span>{testing ? '测试中...' : '测试连接'}</span>
+            <span>{testing ? "测试中..." : "测试连接"}</span>
           </button>
 
           {/* 测试结果 */}
           {testResult && (
-            <div className={`p-3 rounded ${testResult.success ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'}`}>
+            <div
+              className={`p-3 rounded ${
+                testResult.success
+                  ? "bg-green-50 border border-green-200"
+                  : "bg-red-50 border border-red-200"
+              }`}
+            >
               <div className="font-medium">
-                {testResult.success ? '✅ 连接成功' : '❌ 连接失败'}
+                {testResult.success ? "✅ 连接成功" : "❌ 连接失败"}
               </div>
               {testResult.error && (
-                <div className="text-sm text-red-600 mt-1">{testResult.error}</div>
+                <div className="text-sm text-red-600 mt-1">
+                  {testResult.error}
+                </div>
               )}
               {testResult.data && (
                 <div className="text-sm mt-2">
                   <div>值: {JSON.stringify(testResult.data.value)}</div>
-                  <div className="text-gray-600">时间: {new Date(testResult.data.timestamp).toLocaleString('zh-CN')}</div>
+                  <div className="text-gray-600">
+                    时间:{" "}
+                    {new Date(testResult.data.timestamp).toLocaleString(
+                      "zh-CN"
+                    )}
+                  </div>
                 </div>
               )}
             </div>
@@ -363,7 +429,7 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
             disabled={loading}
             className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
-            {loading ? '保存中...' : '保存配置'}
+            {loading ? "保存中..." : "保存配置"}
           </button>
         </div>
       </div>
@@ -372,5 +438,3 @@ const OPCUAConfig = ({ machineId, machineName, onClose }) => {
 };
 
 export default OPCUAConfig;
-
-
