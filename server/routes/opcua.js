@@ -134,12 +134,14 @@ router.post(
 
 // 测试 OPC UA 连接（不保持连接）
 router.post("/machines/opcua-test", authenticateToken, async (req, res) => {
-  const { opcuaEndpoint, opcuaNodeId } = req.body;
+  const { opcuaEndpoint, opcuaNodeId, opcuaUsername, opcuaPassword } = req.body;
 
   try {
     const result = await opcuaManager.readNodeValue({
       opcuaEndpoint,
       opcuaNodeId,
+      opcuaUsername,
+      opcuaPassword,
     });
     res.json({
       success: true,
@@ -172,9 +174,22 @@ router.get(
       connection.release();
 
       if (rows.length > 0) {
+        // 解析 realtimeData JSON 字符串
+        let realtimeData = null;
+        try {
+          if (rows[0].realtimeData) {
+            realtimeData =
+              typeof rows[0].realtimeData === "string"
+                ? JSON.parse(rows[0].realtimeData)
+                : rows[0].realtimeData;
+          }
+        } catch (error) {
+          console.error("解析 realtimeData 失败:", error);
+        }
+
         res.json({
           ...status,
-          realtimeData: rows[0].realtimeData,
+          realtimeData,
           lastUpdate: rows[0].lastOpcuaUpdate,
           currentStatus: rows[0].status,
         });
