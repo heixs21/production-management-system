@@ -7,6 +7,10 @@ import CurrentOrdersAnalysis from "../components/CurrentOrdersAnalysis";
 import DateRangeSelector from "../components/DateRangeSelector";
 import GanttChart from "../components/GanttChart";
 import MaterialTaktTable from "../components/MaterialTaktTable";
+import KPICards from "../components/KPICards";
+import { OrderManagementSkeleton } from "../components/Skeleton";
+import { OrdersEmptyState } from "../components/EmptyState";
+import { useToast } from "../components/Toast";
 import {
   ErrorMessage,
   LoadingSpinner,
@@ -33,6 +37,7 @@ import { exportOrdersToExcel, exportGanttChart } from "../utils/exportUtils";
 
 const OrderManagementPage = () => {
   const { user, canPerformAction } = useAuth();
+  const { addToast } = useToast();
   
   // 使用自定义hooks管理数据
   const {
@@ -54,7 +59,8 @@ const OrderManagementPage = () => {
   const {
     machines,
     loading: machinesLoading,
-    error: machinesError
+    error: machinesError,
+    loadMachines
   } = useMachineData();
 
   const {
@@ -65,12 +71,20 @@ const OrderManagementPage = () => {
     updateMaterial,
     deleteMaterial,
     importMaterials,
-    validateMaterial
+    validateMaterial,
+    loadMaterials
   } = useMaterialData();
 
   // UI状态管理
   const loading = ordersLoading || machinesLoading || materialsLoading;
   const error = ordersError || machinesError || materialsError;
+
+  // 初始化加载数据
+  useEffect(() => {
+    loadOrders();
+    loadMachines();
+    loadMaterials();
+  }, [loadOrders, loadMachines, loadMaterials]);
   const [draggedOrder, setDraggedOrder] = useState(null);
   const [lastDragOperation, setLastDragOperation] = useState(null);
   const [selectedMachineGroup, setSelectedMachineGroup] = useState('all');
@@ -83,6 +97,7 @@ const OrderManagementPage = () => {
   const [showReportWorkModal, setShowReportWorkModal] = useState(false);
   const [showFinishOrderModal, setShowFinishOrderModal] = useState(false);
   const [finishingOrder, setFinishingOrder] = useState(null);
+  const [productionReportOrder, setProductionReportOrder] = useState(null);
 
   const [showSubmitWorkOrderModal, setShowSubmitWorkOrderModal] = useState(false);
   const [submittingOrder, setSubmittingOrder] = useState(null);
@@ -189,21 +204,8 @@ const OrderManagementPage = () => {
     return getDateRange();
   }, [selectedTimeRange, customStartDate, customEndDate]);
 
-  // 更新工单状态
-  useEffect(() => {
-    const updatedOrders = orders.map(order => {
-      const newStatus = calculateOrderStatus(order, machines, orders);
-      return order.status !== newStatus ? { ...order, status: newStatus } : order;
-    });
-    
-    const hasStatusChanged = updatedOrders.some((order, index) => 
-      order !== orders[index]
-    );
-    
-    if (hasStatusChanged) {
-      setOrders(updatedOrders);
-    }
-  }, [machines, orders, setOrders]);
+  // 🔥 移除了原有的状态计算useEffect
+  // 现在loadOrders()会在加载数据后自动计算所有工单的status，避免状态丢失问题
 
   // 工单管理处理函数
   const handleAddOrder = useCallback(async () => {
@@ -224,10 +226,11 @@ const OrderManagementPage = () => {
         isSubmitted: false,
       });
       setShowAddForm(false);
+      addToast({ type: 'success', message: '✅ 工单添加成功！' });
     } catch (err) {
-      alert(`添加工单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 添加工单失败: ${err.message}` });
     }
-  }, [newOrder, addOrder]);
+  }, [newOrder, addOrder, addToast]);
 
   const handleEditOrder = useCallback((order) => {
     const formatDate = (date) => {
@@ -247,10 +250,11 @@ const OrderManagementPage = () => {
     try {
       await updateOrder(editingOrder);
       setEditingOrder(null);
+      addToast({ type: 'success', message: '✅ 工单更新成功！' });
     } catch (err) {
-      alert(`更新工单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 更新工单失败: ${err.message}` });
     }
-  }, [editingOrder, updateOrder]);
+  }, [editingOrder, updateOrder, addToast]);
 
   const handleDeleteOrder = useCallback((orderId) => {
     if (window.confirm('确定要删除这个工单吗？')) {
@@ -265,7 +269,13 @@ const OrderManagementPage = () => {
 
       if (result.pausedOrders.length > 0) {
         const pausedOrderNames = result.pausedOrders.map(o => o.orderNo).join(', ');
-        alert(`紧急插单成功！已暂停工单：${pausedOrderNames}`);
+        addToast({ 
+          type: 'success', 
+          message: `🚨 紧急插单成功！已暂停工单：${pausedOrderNames}`,
+          duration: 5000
+        });
+      } else {
+        addToast({ type: 'success', message: '🚨 紧急插单成功！' });
       }
 
       setUrgentOrder({
@@ -282,9 +292,9 @@ const OrderManagementPage = () => {
       });
       setShowUrgentForm(false);
     } catch (err) {
-      alert(`紧急插单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 紧急插单失败: ${err.message}` });
     }
-  }, [urgentOrder, addUrgentOrder]);
+  }, [urgentOrder, addUrgentOrder, addToast]);
 
   // 报工处理
   const handleReportWork = useCallback((order, date) => {
@@ -318,6 +328,13 @@ const OrderManagementPage = () => {
       alert(`结束工单失败: ${err.message}`);
     }
   }, [finishingOrder, updateOrder]);
+
+  // 产量上报处理函数
+  const handleProductionReport = useCallback((order) => {
+    setProductionReportOrder(order);
+    // 这里可以打开产量上报弹窗，如果OrderManagementPage有相关的弹窗状态
+    // 暂时只设置状态，具体的弹窗在OrderManagement组件中处理
+  }, []);
 
 
 
@@ -610,11 +627,35 @@ const OrderManagementPage = () => {
     setDraggedOrder(null);
   }, [draggedOrder, dateRange, updateOrder]);
 
+  // 显示加载骨架屏
+  if (loading && orders.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <OrderManagementSkeleton />
+      </div>
+    );
+  }
+
+  // 显示空状态
+  if (!loading && orders.length === 0) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen">
+        <div className="bg-white rounded-lg shadow-lg p-8">
+          <OrdersEmptyState onCreateOrder={canPerformAction('order.create') ? () => setShowAddForm(true) : null} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 错误提示和加载状态 */}
+      {/* KPI数据卡片 */}
+      <div className="mb-6">
+        <KPICards orders={orders} machines={machines} />
+      </div>
+
+      {/* 错误提示 */}
       {error && <ErrorMessage message={error} onClose={() => {}} />}
-      <LoadingSpinner loading={loading} />
       
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* 头部 */}
@@ -785,8 +826,10 @@ const OrderManagementPage = () => {
       <FinishOrderModal
         show={showFinishOrderModal}
         order={finishingOrder}
+        machines={machines}
         onConfirm={handleConfirmFinishOrder}
         onClose={() => setShowFinishOrderModal(false)}
+        onProductionReport={handleProductionReport}
       />
 
 

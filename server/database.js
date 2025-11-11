@@ -1,16 +1,129 @@
 const mysql = require('mysql2/promise');
 
+// ========================================
+// 数据库连接配置（已优化）
+// ========================================
 const dbConfig = {
+  // 基础配置
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   password: process.env.DB_PASSWORD || 'Hota@123456',
   database: process.env.DB_NAME || 'gunt_db',
+  port: process.env.DB_PORT || 3306,
+  
+  // 字符集和时区
   charset: 'utf8mb4',
   timezone: '+00:00',
-  dateStrings: true
+  dateStrings: true,
+  
+  // ========================================
+  // 连接池优化配置
+  // ========================================
+  
+  // 连接池配置
+  waitForConnections: true,              // 连接池满时等待而不是立即报错
+  connectionLimit: 20,                    // 最大连接数（根据服务器配置调整）
+  maxIdle: 10,                            // 最大空闲连接数
+  idleTimeout: 60000,                     // 空闲连接超时时间（60秒）
+  queueLimit: 0,                          // 等待队列长度限制（0=无限制）
+  
+  // 连接保活
+  enableKeepAlive: true,                  // 启用TCP keepalive
+  keepAliveInitialDelay: 0,               // keepalive初始延迟（0=立即开始）
+  
+  // 性能优化
+  multipleStatements: false,              // 禁用多语句查询（安全考虑）
+  namedPlaceholders: true,                // 启用命名占位符
+  
+  // 连接超时设置
+  connectTimeout: 10000,                  // 连接超时（10秒）
+  acquireTimeout: 10000,                  // 获取连接超时（10秒）
+  timeout: 60000,                         // 查询超时（60秒）
+  
+  // SSL配置（生产环境建议启用）
+  // ssl: {
+  //   rejectUnauthorized: false
+  // },
+  
+  // 调试模式（开发环境可启用）
+  debug: process.env.DB_DEBUG === 'true' ? ['ComQueryPacket', 'RowDataPacket'] : false,
 };
 
+// 创建连接池
 const pool = mysql.createPool(dbConfig);
+
+// ========================================
+// 连接池事件监听（监控和日志）
+// ========================================
+
+// 监听连接获取
+pool.on('acquire', (connection) => {
+  if (process.env.DB_DEBUG === 'true') {
+    console.log('📊 [DB] 连接已获取, ID:', connection.threadId);
+  }
+});
+
+// 监听连接释放
+pool.on('release', (connection) => {
+  if (process.env.DB_DEBUG === 'true') {
+    console.log('📤 [DB] 连接已释放, ID:', connection.threadId);
+  }
+});
+
+// 监听连接队列
+pool.on('enqueue', () => {
+  if (process.env.DB_DEBUG === 'true') {
+    console.log('⏳ [DB] 等待可用连接...');
+  }
+});
+
+// ========================================
+// 连接池健康检查
+// ========================================
+
+async function checkPoolHealth() {
+  try {
+    const connection = await pool.getConnection();
+    await connection.ping();
+    connection.release();
+    return true;
+  } catch (error) {
+    console.error('❌ [DB] 连接池健康检查失败:', error.message);
+    return false;
+  }
+}
+
+// 定期健康检查（每30秒）
+setInterval(async () => {
+  const isHealthy = await checkPoolHealth();
+  if (!isHealthy) {
+    console.warn('⚠️ [DB] 连接池不健康，请检查数据库连接');
+  }
+}, 30000);
+
+// ========================================
+// 慢查询日志记录
+// ========================================
+
+const originalExecute = pool.execute.bind(pool);
+pool.execute = async function(...args) {
+  const startTime = Date.now();
+  try {
+    const result = await originalExecute(...args);
+    const duration = Date.now() - startTime;
+    
+    // 记录慢查询（超过1秒）
+    if (duration > 1000) {
+      console.warn(`⚠️ [DB] 慢查询 (${duration}ms):`, args[0].substring(0, 100));
+    }
+    
+    return result;
+  } catch (error) {
+    const duration = Date.now() - startTime;
+    console.error(`❌ [DB] 查询失败 (${duration}ms):`, error.message);
+    throw error;
+  }
+};
 
 async function initDatabase() {
   try {
@@ -26,6 +139,7 @@ async function initDatabase() {
         status VARCHAR(50) DEFAULT '正常',
         oee DECIMAL(3,2) DEFAULT 0.85,
         coefficient DECIMAL(5,2) DEFAULT 1.00,
+        requiresProductionReport BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     `);
@@ -182,6 +296,28 @@ async function initDatabase() {
 
 
 
+    // 添加 requiresProductionReport 字段（如果不存在）
+    try {
+      // 先检查字段是否存在
+      const [columns] = await connection.execute(`
+        SELECT COLUMN_NAME 
+        FROM INFORMATION_SCHEMA.COLUMNS 
+        WHERE TABLE_SCHEMA = DATABASE() 
+        AND TABLE_NAME = 'machines' 
+        AND COLUMN_NAME = 'requiresProductionReport'
+      `);
+      
+      if (columns.length === 0) {
+        await connection.execute(`
+          ALTER TABLE machines 
+          ADD COLUMN requiresProductionReport BOOLEAN DEFAULT FALSE AFTER autoAdjustOrders
+        `);
+        console.log('✅ 已添加 requiresProductionReport 字段');
+      }
+    } catch (error) {
+      console.log('❌ 添加 requiresProductionReport 字段失败:', error.message);
+    }
+
     // 为现有机台创建默认班次（只在不存在时创建）
     const [machines] = await connection.execute('SELECT id FROM machines');
     for (const machine of machines) {
@@ -196,4 +332,8 @@ async function initDatabase() {
   }
 }
 
-module.exports = { pool, initDatabase };
+module.exports = { 
+  pool, 
+  initDatabase,
+  checkPoolHealth 
+};

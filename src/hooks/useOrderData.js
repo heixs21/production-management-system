@@ -1,31 +1,40 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { orderApi, machineApi } from '../services/api';
+import useOrderStore from '../stores/useOrderStore';
+import { calculateOrderStatus } from '../utils/orderUtils';
 
-// 工单数据管理Hook - 使用后端API
+/**
+ * 工单数据管理Hook - 使用Zustand状态管理
+ * 这是重构后的版本，使用Zustand store
+ */
 export const useOrderData = () => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  // 从Zustand store获取状态和actions
+  const {
+    orders,
+    loading,
+    error,
+    totalCount,
+    currentPage,
+    pageSize,
+    filters,
+    setOrders,
+    setOrdersWithPagination,
+    addOrder: addOrderToStore,
+    updateOrder: updateOrderInStore,
+    deleteOrder: deleteOrderFromStore,
+    setLoading,
+    setError,
+    setPage,
+    setPageSize,
+    setFilters,
+    clearFilters,
+    importOrders: importOrdersToStore,
+    addUrgentOrder: addUrgentOrderToStore,
+    pauseOrder: pauseOrderInStore,
+    resumeOrder: resumeOrderInStore,
+    reportWork: reportWorkInStore,
+  } = useOrderStore();
 
-  // 加载工单数据
-  const loadOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const data = await orderApi.getAll();
-      setOrders(data);
-    } catch (err) {
-      setError(err.message);
-      console.error('加载工单数据失败:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  // 初始加载
-  useEffect(() => {
-    loadOrders();
-  }, [loadOrders]);
   // 验证工单数据
   const validateOrder = useCallback((order) => {
     const errors = [];
@@ -43,6 +52,57 @@ export const useOrderData = () => {
     return errors;
   }, []);
 
+  // 加载工单数据（支持分页，默认加载全部）
+  const loadOrders = useCallback(async (usePagination = false, page = 1, size = 50, filterOptions = {}) => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // 如果不使用分页，不传page和limit参数（后端会返回所有数据）
+      const params = usePagination ? {
+        page,
+        limit: size,
+        ...filterOptions
+      } : filterOptions;
+      
+      const data = await orderApi.getAll(params);
+      
+      // 获取机台数据用于状态计算
+      let machines = [];
+      try {
+        machines = await machineApi.getAll();
+      } catch (error) {
+        console.warn('获取机台数据失败，使用空数组:', error);
+      }
+      
+      // 处理返回的数据
+      let loadedOrders = [];
+      if (data.orders && data.total !== undefined) {
+        loadedOrders = data.orders;
+      } else {
+        loadedOrders = Array.isArray(data) ? data : [];
+      }
+      
+      // 🔥 修复状态丢失bug：重新计算所有工单的status
+      const ordersWithStatus = loadedOrders.map(order => ({
+        ...order,
+        status: calculateOrderStatus(order, machines, loadedOrders)
+      }));
+      
+      // 保存到store
+      if (data.orders && data.total !== undefined) {
+        setOrdersWithPagination(ordersWithStatus, data.total, page);
+      } else {
+        setOrders(ordersWithStatus);
+      }
+    } catch (err) {
+      setError(err.message);
+      console.error('加载工单数据失败:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [setLoading, setError, setOrders, setOrdersWithPagination]);
+
   // 添加工单
   const addOrder = useCallback(async (orderData) => {
     try {
@@ -58,14 +118,13 @@ export const useOrderData = () => {
       }
 
       const newOrder = await orderApi.create(orderToAdd);
-      await loadOrders(); // 重新加载数据
+      addOrderToStore(newOrder);
       return newOrder;
     } catch (error) {
       console.error('添加工单失败:', error);
       throw error;
     }
-
-  }, [orders, validateOrder, loadOrders]);
+  }, [orders, validateOrder, addOrderToStore]);
 
   // 更新工单
   const updateOrder = useCallback(async (updatedOrder) => {
@@ -82,15 +141,15 @@ export const useOrderData = () => {
 
       const originalOrder = orders.find(o => o.id === updatedOrder.id);
       
-      // 如果工单被结束（设置了actualEndDate），检查机台配置决定是否调整后续工单
+      // 获取机台数据
+      const machines = await machineApi.getAll();
+      
+      // 如果工单被结束，检查机台配置决定是否调整后续工单
       if (updatedOrder.actualEndDate && !originalOrder?.actualEndDate) {
-        // 获取机台配置信息
         try {
-          const machines = await machineApi.getAll();
           const machine = machines.find(m => m.name === updatedOrder.machine);
           
-          // 只有当机台启用了自动调整功能时才执行调整逻辑
-          if (machine && machine.autoAdjustOrders !== false) {
+          if (machine && (machine.autoAdjustOrders === true || machine.autoAdjustOrders === 1)) {
             const sameMachineOrders = orders
               .filter(o => 
                 o.machine === updatedOrder.machine && 
@@ -114,72 +173,54 @@ export const useOrderData = () => {
                 const newEndDate = new Date(newStartDate);
                 newEndDate.setDate(newEndDate.getDate() + orderDuration);
                 
-                await orderApi.update(nextOrder.id, {
+                const adjustedOrder = {
                   ...nextOrder,
                   startDate: newStartDate.toISOString().split('T')[0],
                   expectedEndDate: newEndDate.toISOString().split('T')[0]
-                });
+                };
+                
+                await orderApi.update(nextOrder.id, adjustedOrder);
+                
+                // 🔥 重新计算调整后的工单状态
+                const adjustedOrderWithStatus = {
+                  ...adjustedOrder,
+                  status: calculateOrderStatus(adjustedOrder, machines, orders)
+                };
+                updateOrderInStore(adjustedOrderWithStatus);
                 
                 lastEndDate = newEndDate;
               }
             }
           }
         } catch (error) {
-          console.error('获取机台配置失败:', error);
-          // 如果获取机台配置失败，为了保持向后兼容性，仍然执行调整逻辑
-          const sameMachineOrders = orders
-            .filter(o => 
-              o.machine === updatedOrder.machine && 
-              !o.actualEndDate && 
-              o.id !== updatedOrder.id &&
-              new Date(o.startDate) >= new Date(originalOrder.startDate)
-            )
-            .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-
-          if (sameMachineOrders.length > 0) {
-            let lastEndDate = new Date(updatedOrder.actualEndDate);
-            
-            for (const nextOrder of sameMachineOrders) {
-              const orderDuration = Math.ceil(
-                (new Date(nextOrder.expectedEndDate) - new Date(nextOrder.startDate)) / (1000 * 60 * 60 * 24)
-              );
-              
-              const newStartDate = new Date(lastEndDate);
-              newStartDate.setDate(newStartDate.getDate() + 1);
-              
-              const newEndDate = new Date(newStartDate);
-              newEndDate.setDate(newEndDate.getDate() + orderDuration);
-              
-              await orderApi.update(nextOrder.id, {
-                ...nextOrder,
-                startDate: newStartDate.toISOString().split('T')[0],
-                expectedEndDate: newEndDate.toISOString().split('T')[0]
-              });
-              
-              lastEndDate = newEndDate;
-            }
-          }
+          console.error('调整后续工单失败:', error);
         }
       }
 
       await orderApi.update(updatedOrder.id, updatedOrder);
-      await loadOrders();
+      
+      // 🔥 重新计算更新后的工单状态
+      const updatedOrderWithStatus = {
+        ...updatedOrder,
+        status: calculateOrderStatus(updatedOrder, machines, orders)
+      };
+      updateOrderInStore(updatedOrderWithStatus);
     } catch (error) {
       console.error('更新工单失败:', error);
       throw error;
     }
-  }, [orders, validateOrder, loadOrders]);
+  }, [orders, validateOrder, updateOrderInStore]);
 
   // 删除工单
   const deleteOrder = useCallback(async (orderId) => {
     try {
       await orderApi.delete(orderId);
-      await loadOrders(); // 重新加载数据
+      deleteOrderFromStore(orderId);
     } catch (error) {
       console.error('删除工单失败:', error);
       throw error;
     }
-  }, [loadOrders]);
+  }, [deleteOrderFromStore]);
 
   // 批量导入工单
   const importOrders = useCallback(async (pasteData) => {
@@ -191,17 +232,6 @@ export const useOrderData = () => {
       lines.forEach((line, index) => {
         const cells = line.split("\t");
         if (cells.length >= 8) {
-          const startDate = cells[6]?.trim() || "";
-          const expectedEndDate = cells[7]?.trim() || "";
-          const actualEndDate = cells[8]?.trim() || "";
-
-          // 调试日期解析
-          console.log('导入日期调试:', {
-            原始开始日期: startDate,
-            原始结束日期: expectedEndDate,
-            行号: index + 1
-          });
-
           const order = {
             machine: cells[0]?.trim() || "",
             orderNo: cells[1]?.trim() || "",
@@ -209,9 +239,9 @@ export const useOrderData = () => {
             materialName: cells[3]?.trim() || "",
             quantity: parseInt(cells[4]) || 0,
             priority: parseInt(cells[5]) || 1,
-            startDate: startDate,
-            expectedEndDate: expectedEndDate,
-            actualEndDate: actualEndDate,
+            startDate: cells[6]?.trim() || "",
+            expectedEndDate: cells[7]?.trim() || "",
+            actualEndDate: cells[8]?.trim() || "",
             reportedQuantity: parseInt(cells[9]) || 0,
             dailyReports: {},
             status: "未开始"
@@ -230,21 +260,24 @@ export const useOrderData = () => {
 
       if (errors.length > 0) {
         throw new Error(`导入失败:\n${errors.join('\n')}`);
-      } else if (newOrders.length > 0) {
-        // 批量创建工单
-        for (const order of newOrders) {
-          await orderApi.create(order);
-        }
-        await loadOrders(); // 重新加载数据
-        return newOrders.length;
-      } else {
-        throw new Error('没有找到有效的数据行');
       }
+      
+      if (newOrders.length > 0) {
+        const createdOrders = [];
+        for (const order of newOrders) {
+          const created = await orderApi.create(order);
+          createdOrders.push(created);
+        }
+        importOrdersToStore(createdOrders);
+        return createdOrders.length;
+      }
+      
+      throw new Error('没有找到有效的数据行');
     } catch (error) {
       console.error('批量导入工单失败:', error);
       throw error;
     }
-  }, [validateOrder, loadOrders]);
+  }, [validateOrder, importOrdersToStore]);
 
   // 紧急插单功能
   const addUrgentOrder = useCallback(async (urgentOrderData, targetMachine, insertDate) => {
@@ -253,7 +286,7 @@ export const useOrderData = () => {
         ...urgentOrderData,
         quantity: parseInt(urgentOrderData.quantity) || 0,
         isUrgent: true,
-        priority: 0, // 紧急工单优先级最高
+        priority: 0,
         status: "未开始"
       };
 
@@ -262,83 +295,61 @@ export const useOrderData = () => {
         throw new Error(`紧急插单失败: ${validationErrors.join(', ')}`);
       }
 
-      // 找到需要暂停的工单
       const affectedOrders = orders.filter(order =>
         order.machine === targetMachine &&
-        !order.actualEndDate && // 未完成的工单
+        !order.actualEndDate &&
         new Date(order.startDate) <= new Date(insertDate) &&
         new Date(order.expectedEndDate) >= new Date(insertDate)
       );
 
-      // 先创建紧急工单
       const newUrgentOrder = await orderApi.create(orderToAdd);
 
-      // 暂停受影响的工单
+      const pausedOrders = [];
       for (const order of affectedOrders) {
-        await orderApi.update(order.id, {
-          ...order,
-          isPaused: true,
-          pausedDate: insertDate
-        });
+        const pausedOrder = { ...order, isPaused: true, pausedDate: insertDate };
+        await orderApi.update(order.id, pausedOrder);
+        pausedOrders.push(pausedOrder);
       }
 
-      await loadOrders(); // 重新加载数据
-      return { newOrder: newUrgentOrder, pausedOrders: affectedOrders };
+      addUrgentOrderToStore(newUrgentOrder, pausedOrders);
+      return { newOrder: newUrgentOrder, pausedOrders };
     } catch (error) {
       console.error('紧急插单失败:', error);
       throw error;
     }
-  }, [orders, validateOrder, loadOrders]);
+  }, [orders, validateOrder, addUrgentOrderToStore]);
 
-  // 恢复暂停的工单 - 创建新的工单段
-  const resumeOrder = useCallback(async (orderId, newStartDate) => {
+  // 恢复暂停的工单（优化版：直接更新原工单，不创建新工单，保留原始开始日期）
+  const resumeOrder = useCallback(async (orderId, resumeDate) => {
     try {
       const order = orders.find(o => o.id === orderId);
       if (!order || !order.isPaused) return;
 
-      // 根据剩余天数计算新的结束日期
-      const resumeDate = new Date(newStartDate);
-      const newEndDate = new Date(resumeDate);
+      // 计算新的结束日期（基于剩余天数）
+      const newResumeDate = new Date(resumeDate);
+      const newEndDate = new Date(newResumeDate);
       newEndDate.setDate(newEndDate.getDate() + (order.remainingDays || 1) - 1);
 
-      // 创建新的工单段（恢复段）
-      const resumeOrderData = {
-        machine: order.machine,
-        orderNo: `${order.orderNo}-续`, // 添加续字标识
-        materialNo: order.materialNo,
-        materialName: order.materialName,
-        quantity: order.quantity - (order.reportedQuantity || 0), // 剩余数量
-        priority: order.priority,
-        startDate: newStartDate,
-        expectedEndDate: newEndDate.toISOString().split('T')[0],
-        actualEndDate: null,
-        reportedQuantity: 0,
-        dailyReports: {},
-        status: "生产中",
-        isUrgent: order.isUrgent,
-        isPaused: false,
-        pausedDate: null,
-        resumedDate: newStartDate,
-        delayReason: `从工单${order.orderNo}恢复生产`,
-        originalOrderId: orderId // 记录原工单ID
-      };
-
-      // 添加新的恢复工单
-      await orderApi.create(resumeOrderData);
-
-      // 将原工单标记为已暂停完成
-      await orderApi.update(orderId, {
+      // 直接更新原工单，恢复生产
+      // 关键：保持原始 startDate 不变！
+      const updatedOrder = {
         ...order,
-        status: "暂停完成",
-        actualEndDate: order.pausedDate // 实际结束日期设为暂停日期
-      });
-
-      await loadOrders(); // 重新加载数据
+        isPaused: false,
+        // pausedDate: 保留暂停日期，用于标记暂停时间段
+        resumedDate: resumeDate, // 记录恢复日期
+        expectedEndDate: newEndDate.toISOString().split('T')[0],
+        status: "生产中",
+        delayReason: `暂停时段: ${order.pausedDate} 至 ${resumeDate}` + (order.delayReason ? ` | 原因: ${order.delayReason}` : ''),
+        // 保留原始 startDate、已报工数据和剩余天数
+      };
+      
+      await orderApi.update(orderId, updatedOrder);
+      resumeOrderInStore(orderId, resumeDate);
     } catch (error) {
       console.error('恢复工单失败:', error);
       throw error;
     }
-  }, [orders, loadOrders]);
+  }, [orders, resumeOrderInStore]);
 
   // 暂停工单
   const pauseOrder = useCallback(async (orderId, pauseDate) => {
@@ -346,31 +357,30 @@ export const useOrderData = () => {
       const order = orders.find(o => o.id === orderId);
       if (!order) return;
 
-      // 计算已生产天数
       const startDate = new Date(order.startDate);
       const pauseDateTime = new Date(pauseDate);
       const producedDays = Math.ceil((pauseDateTime - startDate) / (1000 * 60 * 60 * 24)) + 1;
-
-      // 计算剩余天数
       const totalDays = Math.ceil((new Date(order.expectedEndDate) - startDate) / (1000 * 60 * 60 * 24)) + 1;
       const remainingDays = Math.max(0, totalDays - producedDays);
 
-      await orderApi.update(orderId, {
+      const updatedOrder = {
         ...order,
         isPaused: true,
         pausedDate: pauseDate,
         producedDays: producedDays,
         remainingDays: remainingDays,
         status: "暂停中"
-      });
+      };
 
-      await loadOrders(); // 重新加载数据
+      await orderApi.update(orderId, updatedOrder);
+      pauseOrderInStore(orderId, pauseDate);
     } catch (error) {
       console.error('暂停工单失败:', error);
       throw error;
     }
-  }, [orders, loadOrders]);
-  // 报工功能 - 支持按日期记录
+  }, [orders, pauseOrderInStore]);
+
+  // 报工功能
   const reportWork = useCallback(async (orderId, date, dailyQuantity, delayReason = "") => {
     try {
       const order = orders.find(o => o.id === orderId);
@@ -381,37 +391,52 @@ export const useOrderData = () => {
         [date]: dailyQuantity
       };
 
-      // 计算总报工数量
       const totalReported = Object.values(newDailyReports).reduce((sum, qty) => sum + qty, 0);
 
-      await orderApi.update(orderId, {
+      const updatedOrder = {
         ...order,
         dailyReports: newDailyReports,
         reportedQuantity: totalReported,
         delayReason: delayReason
-      });
+      };
 
-      await loadOrders(); // 重新加载数据
+      await orderApi.update(orderId, updatedOrder);
+      reportWorkInStore(orderId, date, dailyQuantity, delayReason);
     } catch (error) {
       console.error('报工失败:', error);
       throw error;
     }
-  }, [orders, loadOrders]);
+  }, [orders, reportWorkInStore]);
 
   return {
+    // 状态
     orders,
     loading,
     error,
+    totalCount,
+    currentPage,
+    pageSize,
+    filters,
+    
+    // 基本操作
     setOrders,
     addOrder,
     updateOrder,
     deleteOrder,
+    
+    // 高级操作
     importOrders,
     validateOrder,
     loadOrders,
     addUrgentOrder,
     resumeOrder,
     pauseOrder,
-    reportWork
+    reportWork,
+    
+    // 分页和过滤
+    setPage,
+    setPageSize,
+    setFilters,
+    clearFilters,
   };
 };

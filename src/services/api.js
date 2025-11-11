@@ -125,6 +125,24 @@ export const workOrderApi = {
   })
 };
 
+// 产量/机台报表API
+export const productionApi = {
+  getDailyMachineReport: ({ startDate, endDate, machine } = {}) => {
+    const params = new URLSearchParams();
+    if (startDate) {
+      params.append('startDate', startDate);
+    }
+    if (endDate) {
+      params.append('endDate', endDate);
+    }
+    if (machine && machine !== 'all') {
+      params.append('machine', machine);
+    }
+    const queryString = params.toString();
+    return apiRequest(`/production-reports/machines/daily${queryString ? `?${queryString}` : ''}`);
+  },
+};
+
 // 认证API
 export const authApi = {
   // 用户登录（不使用通用请求函数，避免自动重定向）

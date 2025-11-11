@@ -34,6 +34,7 @@ app.use('/api', require('./routes/materials'));
 app.use('/api', require('./routes/production'));
 app.use('/api', require('./routes/external'));
 app.use('/api', require('./routes/opcua'));
+app.use('/api', require('./routes/database-monitor')); // 数据库监控API
 
 // 定时更新WMS报工数量（仅针对和泰链运）
 async function updateWmsQuantities() {

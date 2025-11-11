@@ -1,11 +1,24 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useCallback } from 'react';
 import { machineApi } from '../services/api';
+import useMachineStore from '../stores/useMachineStore';
 
-// 机台数据管理Hook - 使用后端API
+/**
+ * 机台数据管理Hook - 使用Zustand状态管理
+ */
 export const useMachineData = () => {
-  const [machines, setMachines] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const {
+    machines,
+    loading,
+    error,
+    setMachines,
+    addMachine: addMachineToStore,
+    updateMachine: updateMachineInStore,
+    deleteMachine: deleteMachineFromStore,
+    setLoading,
+    setError,
+    getMachineStatus,
+    updateRealtimeData,
+  } = useMachineStore();
 
   // 加载机台数据
   const loadMachines = useCallback(async () => {
@@ -20,12 +33,7 @@ export const useMachineData = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // 初始加载
-  useEffect(() => {
-    loadMachines();
-  }, [loadMachines]);
+  }, [setLoading, setError, setMachines]);
 
   // 添加机台
   const addMachine = useCallback(async (machineData) => {
@@ -39,13 +47,13 @@ export const useMachineData = () => {
       }
 
       const newMachine = await machineApi.create(machineData);
-      await loadMachines(); // 重新加载数据
+      addMachineToStore(newMachine);
       return newMachine;
     } catch (err) {
       setError(err.message);
       throw err;
     }
-  }, [machines, loadMachines]);
+  }, [machines, addMachineToStore, setError]);
 
   // 更新机台
   const updateMachine = useCallback(async (updatedMachine) => {
@@ -59,12 +67,12 @@ export const useMachineData = () => {
       }
 
       await machineApi.update(updatedMachine.id, updatedMachine);
-      await loadMachines(); // 重新加载数据
+      updateMachineInStore(updatedMachine);
     } catch (err) {
       setError(err.message);
       throw err;
     }
-  }, [machines, loadMachines]);
+  }, [machines, updateMachineInStore, setError]);
 
   // 删除机台
   const deleteMachine = useCallback(async (machineId, onDeleteOrders) => {
@@ -72,24 +80,17 @@ export const useMachineData = () => {
       const machine = machines.find(m => m.id === machineId);
       if (!machine) return;
 
-      // 如果有关联的工单，调用回调函数处理
       if (onDeleteOrders) {
         onDeleteOrders(machine.name);
       }
 
       await machineApi.delete(machineId);
-      await loadMachines(); // 重新加载数据
+      deleteMachineFromStore(machineId);
     } catch (err) {
       setError(err.message);
       throw err;
     }
-  }, [machines, loadMachines]);
-
-  // 获取机台状态
-  const getMachineStatus = useCallback((machineName) => {
-    const machine = machines.find(m => m.name === machineName);
-    return machine ? machine.status : '正常';
-  }, [machines]);
+  }, [machines, deleteMachineFromStore, setError]);
 
   return {
     machines,
@@ -100,6 +101,8 @@ export const useMachineData = () => {
     updateMachine,
     deleteMachine,
     getMachineStatus,
+    updateRealtimeData,
     loadMachines
   };
 };
+

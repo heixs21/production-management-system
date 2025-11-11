@@ -36,10 +36,23 @@ const MachineMonitoring = () => {
       }
 
       const data = await response.json();
-      setWorkOrders(data || []);
+      // 处理不同的响应格式
+      if (data.items) {
+        setWorkOrders(data.items || []);
+      } else if (Array.isArray(data)) {
+        setWorkOrders(data);
+      } else {
+        setWorkOrders([]);
+      }
+      
+      // 如果MES系统不可用，显示提示
+      if (data.error) {
+        console.log('[MES]', data.error);
+      }
     } catch (err) {
       setError(`获取工单数据失败: ${err.message}`);
       console.error('获取工单数据失败:', err);
+      setWorkOrders([]);
     } finally {
       setLoading(false);
     }

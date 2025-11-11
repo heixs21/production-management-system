@@ -116,10 +116,23 @@ const OrderManagement = ({
       const response = await fetch(`${API_BASE}/api/mes/workOrders`);
       if (response.ok) {
         const data = await response.json();
-        setMesWorkOrders(data || []);
+        // 处理不同的响应格式
+        if (data.items) {
+          setMesWorkOrders(data.items || []);
+        } else if (Array.isArray(data)) {
+          setMesWorkOrders(data);
+        } else {
+          setMesWorkOrders([]);
+        }
+        
+        // 如果MES系统不可用，显示提示（可选）
+        if (data.error) {
+          console.log('[MES]', data.error);
+        }
       }
     } catch (err) {
       console.error('获取MES工单数据失败:', err);
+      setMesWorkOrders([]);  // 确保即使失败也设置为空数组
     }
   };
 
@@ -128,7 +141,7 @@ const OrderManagement = ({
     return mesWorkOrders.some(mesOrder => mesOrder.orderId === orderNo);
   };
 
-  // 一键下达当前分组的未下达工单
+  // 🚀 改进的批量下达逻辑：并发处理 + 重试 + 进度反馈
   const handleBatchSubmit = async () => {
     if (!onBatchSubmitWorkOrder) return;
     
@@ -145,33 +158,88 @@ const OrderManagement = ({
     
     setBatchSubmitting(true);
     
-    for (let i = 0; i < unsubmittedOrders.length; i++) {
-      const order = unsubmittedOrders[i];
-      try {
-        // 使用专门的批量下达函数
-        await onBatchSubmitWorkOrder(order);
-        console.log(`工单 ${order.orderNo} 下达成功`);
-        
-        // 延迟1-2秒
-        if (i < unsubmittedOrders.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1500));
+    const results = {
+      total: unsubmittedOrders.length,
+      success: 0,
+      failed: 0,
+      errors: []
+    };
+
+    // 使用并发限制（每批3个）
+    const limit = 3;
+    
+    for (let i = 0; i < unsubmittedOrders.length; i += limit) {
+      const batch = unsubmittedOrders.slice(i, i + limit);
+      
+      const batchResults = await Promise.allSettled(
+        batch.map(async (order) => {
+          try {
+            await onBatchSubmitWorkOrder(order);
+            return { success: true, order: order.orderNo };
+          } catch (error) {
+            // 失败后重试一次
+            console.log(`工单 ${order.orderNo} 首次下达失败，尝试重试...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            try {
+              await onBatchSubmitWorkOrder(order);
+              return { success: true, order: order.orderNo, retried: true };
+            } catch (retryError) {
+              return { success: false, order: order.orderNo, error: retryError.message };
+            }
+          }
+        })
+      );
+      
+      // 统计结果
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled' && result.value.success) {
+          results.success++;
+          console.log(`✅ 工单 ${result.value.order} 下达成功${result.value.retried ? '（重试）' : ''}`);
+        } else {
+          results.failed++;
+          const errorMsg = result.value?.error || '未知错误';
+          results.errors.push(`${result.value?.order}: ${errorMsg}`);
+          console.error(`❌ 工单 ${result.value?.order} 下达失败:`, errorMsg);
         }
-      } catch (error) {
-        console.error(`工单 ${order.orderNo} 下达失败:`, error);
-        alert(`工单 ${order.orderNo} 下达失败: ${error.message}`);
-        break;
+      });
+      
+      // 小批次之间短暂延迟
+      if (i + limit < unsubmittedOrders.length) {
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
     
     setBatchSubmitting(false);
+    
     // 刷新MES工单数据
     await fetchMesWorkOrders();
-    alert('批量下达完成！');
+    
+    // 显示详细结果
+    if (results.failed === 0) {
+      alert(`✅ 批量下达完成！\n成功: ${results.success}/${results.total}个工单`);
+    } else {
+      const errorDetails = results.errors.slice(0, 5).join('\n');
+      const moreErrors = results.errors.length > 5 ? `\n...还有${results.errors.length - 5}个错误` : '';
+      alert(
+        `⚠️ 批量下达完成\n` +
+        `成功: ${results.success}个\n` +
+        `失败: ${results.failed}个\n\n` +
+        `失败原因:\n${errorDetails}${moreErrors}`
+      );
+    }
   };
 
+  // 🔒 修复重复请求：添加空依赖数组
   useEffect(() => {
     fetchMesWorkOrders();
-  }, []);
+    
+    // 可选：定期刷新MES工单数据（每60秒）
+    const refreshInterval = setInterval(() => {
+      fetchMesWorkOrders();
+    }, 60000);
+    
+    return () => clearInterval(refreshInterval);
+  }, []); // 空依赖数组：只在组件挂载时执行一次
 
   return (
     <div className="p-4 border-b">

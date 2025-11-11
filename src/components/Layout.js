@@ -31,6 +31,12 @@ const Layout = ({ children }) => {
       permission: "machines",
     },
     {
+      name: "机台日报",
+      path: "/machine-daily-report",
+      icon: "🗓️",
+      permission: "orders",
+    },
+    {
       name: "生产看板",
       path: "/board",
       icon: "📺",

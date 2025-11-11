@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import Login from "./components/Login";
 import Layout from "./components/Layout";
@@ -7,13 +7,18 @@ import "./index.css";
 // 导入组件
 import Header from "./components/Header";
 import MachineManager from "./components/MachineManager";
-import OrderTable from "./components/OrderTable";
 import OrderManagement from "./components/OrderManagement";
 import MaterialTaktTable from "./components/MaterialTaktTable";
 import CurrentOrdersAnalysis from "./components/CurrentOrdersAnalysis";
 import DateRangeSelector from "./components/DateRangeSelector";
 import GanttChart from "./components/GanttChart";
 import ProductionBoard from "./components/ProductionBoard";
+
+// 导入优化后的虚拟滚动组件
+import VirtualizedOrderTable from "./components/VirtualizedOrderTable";
+import VirtualizedMaterialTable from "./components/VirtualizedMaterialTable";
+
+// 导入模态框
 import {
   ErrorMessage,
   LoadingSpinner,
@@ -29,33 +34,36 @@ import {
   SubmitWorkOrderModal
 } from "./components/Modals";
 
-// 导入数据管理hooks
+// 导入重构后的hooks（使用Zustand）
 import { useOrderData } from "./hooks/useOrderData";
 import { useMachineData } from "./hooks/useMachineData";
 import { useMaterialData } from "./hooks/useMaterialData";
 import { workOrderApi } from "./services/api";
 
 // 导入工具函数
-import {
-  calculateOrderStatus
-} from "./utils/orderUtils";
-import {
-  exportOrdersToExcel,
-  exportGanttChart
-} from "./utils/exportUtils";
+import { calculateOrderStatus } from "./utils/orderUtils";
+import { exportOrdersToExcel, exportGanttChart } from "./utils/exportUtils";
 
+/**
+ * 主应用组件 - 重构版本
+ * 使用Zustand状态管理和虚拟滚动优化性能
+ */
 const App = () => {
   const { isAuthenticated, loading: authLoading } = useAuth();
   
-  // 页面状态管理
-  const [currentPage, setCurrentPage] = useState('admin'); // 'admin' 或 'board'
+  // 页面状态
+  const [currentPage, setCurrentPage] = useState('admin');
   
-  // 使用自定义hooks管理数据
-  const {
-    orders,
-    loading: ordersLoading,
+  // 使用重构后的hooks（Zustand state management）
+  const orderData = useOrderData();
+  const machineData = useMachineData();
+  const materialData = useMaterialData();
+
+  // 解构数据和方法
+  const { 
+    orders, 
+    loading: ordersLoading, 
     error: ordersError,
-    setOrders,
     addOrder,
     updateOrder,
     deleteOrder,
@@ -64,8 +72,9 @@ const App = () => {
     addUrgentOrder,
     resumeOrder,
     pauseOrder,
-    reportWork
-  } = useOrderData();
+    reportWork,
+    setOrders
+  } = orderData;
 
   const {
     machines,
@@ -74,10 +83,10 @@ const App = () => {
     addMachine,
     updateMachine,
     deleteMachine,
-    getMachineStatus
-  } = useMachineData();
+    getMachineStatus,
+    loadMachines
+  } = machineData;
 
-  // 物料数据管理
   const {
     materials,
     loading: materialsLoading,
@@ -86,8 +95,18 @@ const App = () => {
     updateMaterial,
     deleteMaterial,
     importMaterials,
-    validateMaterial
-  } = useMaterialData();
+    validateMaterial,
+    loadMaterials
+  } = materialData;
+
+  // 初始化数据加载
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadOrders();
+      loadMachines();
+      loadMaterials();
+    }
+  }, [isAuthenticated, loadOrders, loadMachines, loadMaterials]);
 
   // UI状态管理
   const loading = ordersLoading || machinesLoading || materialsLoading;
@@ -149,7 +168,6 @@ const App = () => {
     reportedQuantity: "",
     isSubmitted: false,
   });
-
   const [newMaterial, setNewMaterial] = useState({
     category: "",
     feature: "",
@@ -157,7 +175,7 @@ const App = () => {
     actualTakt: "",
   });
 
-  // 动态生成日期范围
+  // 动态生成日期范围 - 使用useMemo优化
   const dateRange = useMemo(() => {
     const getDateRange = () => {
       const now = new Date();
@@ -189,7 +207,6 @@ const App = () => {
           end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
       }
 
-      // 生成日期数组
       const dates = [];
       const current = new Date(start);
       while (current <= end) {
@@ -197,22 +214,13 @@ const App = () => {
         current.setDate(current.getDate() + 1);
       }
       
-      // 调试信息
-      console.log('日期范围调试:', {
-        selectedTimeRange,
-        start: start.toISOString().split('T')[0],
-        end: end.toISOString().split('T')[0],
-        dates: dates.slice(0, 5) + '...' + dates.slice(-2),
-        totalDays: dates.length
-      });
-      
       return dates;
     };
 
     return getDateRange();
   }, [selectedTimeRange, customStartDate, customEndDate]);
 
-  // 更新工单状态
+  // 更新工单状态 - 使用useCallback优化
   useEffect(() => {
     const updatedOrders = orders.map(order => {
       const newStatus = calculateOrderStatus(order, machines, orders);
@@ -228,7 +236,7 @@ const App = () => {
     }
   }, [machines, orders, setOrders]);
 
-  // 机台管理处理函数
+  // 机台管理处理函数 - 使用useCallback优化
   const handleAddMachine = useCallback(async () => {
     try {
       await addMachine(newMachine);
@@ -260,7 +268,6 @@ const App = () => {
       if (!window.confirm(`机台 ${machine.name} 还有工单，确定要删除吗？删除后相关工单也会被删除。`)) {
         return;
       }
-      // 删除相关工单
       setOrders(orders.filter(o => o.machine !== machine.name));
     }
     
@@ -292,10 +299,9 @@ const App = () => {
   }, [newOrder, addOrder]);
 
   const handleEditOrder = useCallback((order) => {
-    // 确保日期格式正确（只保留日期部分，去掉时间）
     const formatDate = (date) => {
       if (!date) return '';
-      return date.split('T')[0]; // 去掉时间部分
+      return date.split('T')[0];
     };
 
     setEditingOrder({
@@ -363,7 +369,7 @@ const App = () => {
     setReportWorkDate('');
   }, [reportWork, reportWorkDate]);
 
-  // 结束工单处理函数
+  // 结束工单处理
   const handleFinishOrder = useCallback((order) => {
     setFinishingOrder(order);
     setShowFinishOrderModal(true);
@@ -382,7 +388,13 @@ const App = () => {
     }
   }, [finishingOrder, updateOrder]);
 
-  // 延期工单处理函数
+  // 产量上报处理（App.js中暂时不实现具体逻辑）
+  const handleProductionReport = useCallback((order) => {
+    console.log('产量上报:', order);
+    // 可以在这里添加具体的产量上报逻辑
+  }, []);
+
+  // 延期工单处理
   const handleDelayOrder = useCallback((order) => {
     setDelayingOrder(order);
     setShowDelayOrderModal(true);
@@ -401,13 +413,13 @@ const App = () => {
     }
   }, [delayingOrder, updateOrder]);
 
-  // 下达工单处理函数
+  // 下达工单处理
   const handleSubmitWorkOrder = useCallback((order) => {
     setSubmittingOrder(order);
     setShowSubmitWorkOrderModal(true);
   }, []);
 
-  // 生成工序报工单处理函数
+  // 生成工序报工单
   const handleGenerateWorkOrderReport = useCallback(async (order) => {
     try {
       const serverUrl = `http://${window.location.hostname}:12454`;
@@ -421,7 +433,6 @@ const App = () => {
 
       const result = await response.json();
       if (result.success) {
-        // 创建新窗口显示图片
         const newWindow = window.open('', '_blank');
         newWindow.document.write(`
           <html>
@@ -462,7 +473,6 @@ const App = () => {
       setSubmitLoading(true);
       await workOrderApi.submit(workOrderData);
       
-      // 更新工单状态为已下达
       await updateOrder({
         ...submittingOrder,
         isSubmitted: true
@@ -477,8 +487,6 @@ const App = () => {
       setSubmitLoading(false);
     }
   }, [submittingOrder, updateOrder]);
-
-
 
   // 物料处理函数
   const handleAddMaterial = useCallback(async () => {
@@ -576,7 +584,6 @@ const App = () => {
       const result = await response.json();
       if (result.success) {
         alert(result.message);
-        // 重新加载工单数据以显示更新后的数量
         await loadOrders();
       } else {
         alert('WMS数量更新失败: ' + result.error);
@@ -586,21 +593,19 @@ const App = () => {
     }
   }, [loadOrders]);
 
-  // 暂停工单
+  // 暂停/恢复工单
   const handlePauseOrder = useCallback((order) => {
     setPauseResumeOrder(order);
     setPauseResumeAction('pause');
     setShowPauseResumeModal(true);
   }, []);
 
-  // 恢复工单
   const handleResumeOrder = useCallback((order) => {
     setPauseResumeOrder(order);
     setPauseResumeAction('resume');
     setShowPauseResumeModal(true);
   }, []);
 
-  // 确认暂停或恢复
   const handleConfirmPauseResume = useCallback((orderId, date) => {
     if (pauseResumeAction === 'pause') {
       pauseOrder(orderId, date);
@@ -667,7 +672,7 @@ const App = () => {
     return <Login />;
   }
   
-  // 如果当前页面是生产看板，显示生产看板组件
+  // 如果当前页面是生产看板
   if (currentPage === 'board') {
     return <ProductionBoard onBackToAdmin={() => setCurrentPage('admin')} />;
   }
@@ -675,12 +680,10 @@ const App = () => {
   return (
     <Layout>
       <div className="p-6 bg-gray-50 min-h-screen">
-      {/* 错误提示和加载状态 */}
       {error && <ErrorMessage message={error} onClose={() => {}} />}
       <LoadingSpinner loading={loading} />
       
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-        {/* 头部 */}
         <Header
           onShowMachineForm={() => setShowMachineForm(true)}
           onShowPasteDialog={() => setShowPasteDialog(true)}
@@ -713,20 +716,39 @@ const App = () => {
           onDeleteMachine={handleDeleteMachine}
         />
 
-        {/* 工单管理 */}
-        <OrderManagement
-          orders={orders}
-          onEditOrder={handleEditOrder}
-          onDeleteOrder={handleDeleteOrder}
-          onPauseOrder={handlePauseOrder}
-          onResumeOrder={handleResumeOrder}
-          onFinishOrder={handleFinishOrder}
-          onDelayOrder={handleDelayOrder}
-          onSubmitWorkOrder={handleSubmitWorkOrder}
-          onExportOrders={handleExportOrders}
-          onUpdateWmsQuantities={handleUpdateWmsQuantities}
-          onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
-        />
+        {/* 工单管理 - 使用虚拟滚动组件 */}
+        <div className="p-4 border-b">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">工单管理 (已优化性能)</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportOrders}
+                className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+              >
+                📊 导出Excel
+              </button>
+              <button
+                onClick={handleUpdateWmsQuantities}
+                className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600"
+              >
+                🔄 更新WMS数量
+              </button>
+            </div>
+          </div>
+          
+          {/* 使用虚拟滚动组件 */}
+          <VirtualizedOrderTable
+            orders={orders}
+            onEditOrder={handleEditOrder}
+            onDeleteOrder={handleDeleteOrder}
+            onPauseOrder={handlePauseOrder}
+            onResumeOrder={handleResumeOrder}
+            onFinishOrder={handleFinishOrder}
+            onDelayOrder={handleDelayOrder}
+            onSubmitWorkOrder={handleSubmitWorkOrder}
+            onGenerateWorkOrderReport={handleGenerateWorkOrderReport}
+          />
+        </div>
 
         {/* 当前工单生产时间分析 */}
         <CurrentOrdersAnalysis orders={orders} machines={machines} />
@@ -754,17 +776,28 @@ const App = () => {
           />
         </div>
 
-        {/* 物料生产节拍表 */}
-        <MaterialTaktTable
-          materials={materials}
-          onAddMaterial={() => setShowMaterialForm(true)}
-          onEditMaterial={handleEditMaterial}
-          onDeleteMaterial={handleDeleteMaterial}
-          onImportMaterials={handleImportMaterials}
-        />
+        {/* 物料生产节拍表 - 使用虚拟滚动 */}
+        <div className="p-4 border-b">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">物料生产节拍表 (已优化性能)</h2>
+            <button
+              onClick={() => setShowMaterialForm(true)}
+              className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              ➕ 添加物料
+            </button>
+          </div>
+          
+          {/* 使用虚拟滚动组件 */}
+          <VirtualizedMaterialTable
+            materials={materials}
+            onEditMaterial={handleEditMaterial}
+            onDeleteMaterial={handleDeleteMaterial}
+          />
+        </div>
       </div>
 
-      {/* 弹窗组件 */}
+      {/* 所有弹窗组件 */}
       <MachineModal 
         show={showMachineForm}
         isEditing={false}
@@ -858,8 +891,10 @@ const App = () => {
       <FinishOrderModal
         show={showFinishOrderModal}
         order={finishingOrder}
+        machines={machines}
         onConfirm={handleConfirmFinishOrder}
         onClose={() => setShowFinishOrderModal(false)}
+        onProductionReport={handleProductionReport}
       />
 
       <DelayOrderModal
@@ -882,4 +917,5 @@ const App = () => {
   );
 };
 
-export default App;
+export default memo(App);
+
