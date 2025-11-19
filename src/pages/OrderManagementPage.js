@@ -311,10 +311,27 @@ const OrderManagementPage = () => {
   }, [reportWork, reportWorkDate]);
 
   // 结束工单处理函数
-  const handleFinishOrder = useCallback((order) => {
-    setFinishingOrder(order);
-    setShowFinishOrderModal(true);
-  }, []);
+  const handleFinishOrder = useCallback(async (order, totalQuantity) => {
+    // 如果提供了totalQuantity，直接结束工单
+    if (totalQuantity !== undefined) {
+      const today = new Date().toISOString().split('T')[0];
+      try {
+        await updateOrder({
+          ...order,
+          actualEndDate: today,
+          reportedQuantity: totalQuantity,
+          status: '已完成'
+        });
+        addToast({ type: 'success', message: `✅ 工单已结束！完成数量：${totalQuantity}` });
+      } catch (err) {
+        addToast({ type: 'error', message: `❌ 结束工单失败: ${err.message}` });
+      }
+    } else {
+      // 否则打开结束工单弹窗
+      setFinishingOrder(order);
+      setShowFinishOrderModal(true);
+    }
+  }, [updateOrder, addToast]);
 
   const handleConfirmFinishOrder = useCallback(async (finishData) => {
     try {
@@ -324,10 +341,11 @@ const OrderManagementPage = () => {
       });
       setShowFinishOrderModal(false);
       setFinishingOrder(null);
+      addToast({ type: 'success', message: '✅ 工单已结束！' });
     } catch (err) {
-      alert(`结束工单失败: ${err.message}`);
+      addToast({ type: 'error', message: `❌ 结束工单失败: ${err.message}` });
     }
-  }, [finishingOrder, updateOrder]);
+  }, [finishingOrder, updateOrder, addToast]);
 
   // 产量上报处理函数
   const handleProductionReport = useCallback((order) => {

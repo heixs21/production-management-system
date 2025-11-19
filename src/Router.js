@@ -8,7 +8,7 @@ import MachineManagementPage from './pages/MachineManagementPage';
 import MachineMonitoringPage from './pages/MachineMonitoringPage';
 import ProductionBoard from './components/ProductionBoard';
 import UserManagement from './components/UserManagement';
-import ProductionStatisticsPage from './pages/ProductionStatisticsPage';
+
 import MachineDailyReportPage from './pages/MachineDailyReportPage';
 
 // 受保护的路由组件
@@ -92,14 +92,7 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     )
   },
-  {
-    path: "/production-statistics",
-    element: (
-      <ProtectedRoute>
-        <ProductionStatisticsPage />
-      </ProtectedRoute>
-    )
-  },
+
   {
     path: "/machine-daily-report",
     element: (

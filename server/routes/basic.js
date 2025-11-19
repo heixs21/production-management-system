@@ -103,18 +103,49 @@ router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) =
 });
 
 router.put('/machines/:id', authenticateToken, addCompanyFilter, async (req, res) => {
+  const connection = await pool.getConnection();
   try {
+    await connection.beginTransaction();
+    
     const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport } = req.body;
     const autoAdjustValue = autoAdjustOrders === false ? 0 : 1;
     const requiresReportValue = requiresProductionReport ? 1 : 0;
-    await pool.execute(
+    
+    // 获取旧的机台名称
+    const [oldMachine] = await connection.execute(
+      'SELECT name FROM machines WHERE id = ? AND companyId = ?',
+      [req.params.id, req.companyId]
+    );
+    
+    if (oldMachine.length === 0) {
+      await connection.rollback();
+      return res.status(404).json({ error: '机台不存在' });
+    }
+    
+    const oldName = oldMachine[0].name;
+    
+    // 更新机台信息
+    await connection.execute(
       'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ?, requiresProductionReport = ? WHERE id = ? AND companyId = ?',
       [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustValue, requiresReportValue, req.params.id, req.companyId]
     );
-    res.json({ success: true });
+    
+    // 如果机台名称发生变化，同步更新所有关联的工单
+    if (oldName !== name) {
+      await connection.execute(
+        'UPDATE orders SET machine = ? WHERE machine = ? AND companyId = ?',
+        [name, oldName, req.companyId]
+      );
+    }
+    
+    await connection.commit();
+    res.json({ success: true, updatedOrders: oldName !== name });
   } catch (error) {
+    await connection.rollback();
     console.error('更新机台失败:', error);
     res.status(500).json({ error: '更新机台失败' });
+  } finally {
+    connection.release();
   }
 });
 
