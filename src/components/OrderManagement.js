@@ -439,7 +439,7 @@ const OrderManagement = ({
                                 className="p-1 text-green-600 hover:bg-green-100 rounded"
                                 title="产量上报"
                               >
-                                <BarChart3 className="w-4 h-4" />
+                                <ClipboardList className="w-4 h-4" />
                               </button>
                             )}
                           </FeatureGate>
