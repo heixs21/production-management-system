@@ -88,10 +88,10 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave, onFinishOrder }
 
       setReports(reportGrid);
       
-      // 计算总产量
-      const total = reports.reduce((sum, report) => {
-        return sum + Object.values(report).reduce((s, v) => 
-          typeof v === 'number' ? s + v : s, 0
+      // 计算总产量（从表格数据计算）
+      const total = reportGrid.reduce((sum, report) => {
+        return sum + (shiftsData || []).reduce((s, shift) => 
+          s + (report[shift.name] || 0), 0
         );
       }, 0);
       setTotalQuantity(total);
@@ -110,10 +110,10 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave, onFinishOrder }
           : report
       );
       
-      // 重新计算总产量
+      // 重新计算总产量（只计算班次列）
       const total = updated.reduce((sum, report) => {
-        return sum + Object.values(report).reduce((s, v) => 
-          typeof v === 'number' ? s + v : s, 0
+        return sum + (shifts || []).reduce((s, shift) => 
+          s + (report[shift.name] || 0), 0
         );
       }, 0);
       setTotalQuantity(total);
