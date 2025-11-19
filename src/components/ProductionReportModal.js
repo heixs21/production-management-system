@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
 
-const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
+const ProductionReportModal = ({ isOpen, onClose, order, onSave, onFinishOrder }) => {
   const [reports, setReports] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [newShiftName, setNewShiftName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [totalQuantity, setTotalQuantity] = useState(0);
 
   useEffect(() => {
     if (isOpen && order) {
@@ -86,6 +87,14 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
       });
 
       setReports(reportGrid);
+      
+      // 计算总产量
+      const total = reports.reduce((sum, report) => {
+        return sum + Object.values(report).reduce((s, v) => 
+          typeof v === 'number' ? s + v : s, 0
+        );
+      }, 0);
+      setTotalQuantity(total);
     } catch (error) {
       console.error('加载数据失败:', error);
     } finally {
@@ -94,11 +103,23 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
   };
 
   const handleQuantityChange = (date, shiftName, quantity) => {
-    setReports(prev => prev.map(report => 
-      report.date === date 
-        ? { ...report, [shiftName]: parseInt(quantity) || 0 }
-        : report
-    ));
+    setReports(prev => {
+      const updated = prev.map(report => 
+        report.date === date 
+          ? { ...report, [shiftName]: parseInt(quantity) || 0 }
+          : report
+      );
+      
+      // 重新计算总产量
+      const total = updated.reduce((sum, report) => {
+        return sum + Object.values(report).reduce((s, v) => 
+          typeof v === 'number' ? s + v : s, 0
+        );
+      }, 0);
+      setTotalQuantity(total);
+      
+      return updated;
+    });
   };
 
   const handleSave = async () => {
@@ -106,24 +127,31 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
       const token = localStorage.getItem('token');
       const serverUrl = `http://${window.location.hostname}:12454`;
       
+      // 构建所有请求
+      const requests = [];
       for (const report of reports) {
         for (const shift of (shifts || [])) {
           const quantity = report[shift.name] || 0;
-          await fetch(`${serverUrl}/api/production-reports`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              orderId: order.id,
-              shiftName: shift.name,
-              reportDate: report.date,
-              quantity
+          requests.push(
+            fetch(`${serverUrl}/api/production-reports`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({
+                orderId: order.id,
+                shiftName: shift.name,
+                reportDate: report.date,
+                quantity
+              })
             })
-          });
+          );
         }
       }
+      
+      // 并发执行所有请求
+      await Promise.all(requests);
       
       onSave && onSave();
       onClose();
@@ -300,19 +328,44 @@ const ProductionReportModal = ({ isOpen, onClose, order, onSave }) => {
               </table>
             </div>
 
-            <div className="flex justify-end space-x-2 mt-4">
-              <button
-                onClick={onClose}
-                className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
-              >
-                取消
-              </button>
-              <button
-                onClick={handleSave}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-              >
-                保存
-              </button>
+            <div className="flex justify-between items-center mt-4">
+              <div className="flex items-center space-x-4">
+                {!order?.actualEndDate && onFinishOrder && (
+                  <button
+                    onClick={async () => {
+                      const quantity = window.prompt(`请输入完成数量：`, totalQuantity);
+                      if (quantity !== null) {
+                        const finalQuantity = parseInt(quantity) || 0;
+                        if (window.confirm(`确定要结束工单吗？\n\n工单号：${order.orderNo}\n完成数量：${finalQuantity}`)) {
+                          await handleSave();
+                          await onFinishOrder(order, finalQuantity);
+                          onClose();
+                        }
+                      }
+                    }}
+                    className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center"
+                  >
+                    ✅ 结束工单
+                  </button>
+                )}
+                <div className="text-sm text-gray-600">
+                  总产量：<span className="font-bold text-blue-600 text-lg">{totalQuantity}</span>
+                </div>
+              </div>
+              <div className="flex space-x-2">
+                <button
+                  onClick={onClose}
+                  className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleSave}
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                >
+                  保存
+                </button>
+              </div>
             </div>
           </>
         )}

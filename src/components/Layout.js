@@ -42,12 +42,7 @@ const Layout = ({ children }) => {
       icon: "📺",
       permission: "board",
     },
-    {
-      name: "产量统计",
-      path: "/production-statistics",
-      icon: "📊",
-      permission: "orders",
-    },
+
   ];
 
   // 只有管理员能看到用户管理

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, BarChart3, Send } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Edit3, X, Download, ChevronDown, ChevronUp, ClipboardList, Send } from 'lucide-react';
 import { getStatusColors, formatDateOnly } from '../utils/orderUtils';
 import ProductionReportModal from './ProductionReportModal';
 import FeatureGate from './FeatureGate';
@@ -103,6 +103,12 @@ const OrderManagement = ({
 
   const handleProductionReport = (order) => {
     setProductionReportModal({ isOpen: true, order });
+  };
+  
+  const handleFinishOrderFromReport = async (order, totalQuantity) => {
+    if (onFinishOrder) {
+      await onFinishOrder(order, totalQuantity);
+    }
   };
 
   const handleCloseProductionReport = () => {
@@ -657,27 +663,15 @@ const OrderManagement = ({
                                   </button>
                                 )
                               )}
-                              {/* 结束和预览按钮对所有用户可见 */}
-                              <button
-                                onClick={() => onFinishOrder && onFinishOrder(order)}
-                                className={`p-1 rounded ${
-                                  onFinishOrder 
-                                    ? 'text-green-600 hover:bg-green-100' 
-                                    : 'text-gray-400 cursor-not-allowed'
-                                }`}
-                                title="结束工单"
-                                disabled={!onFinishOrder}
-                              >
-                                ✅
-                              </button>
+                              {/* 产量上报/结束工单按钮 */}
                               <FeatureGate feature="productionReport">
                                 {permissions.canRead && (
                                   <button
                                     onClick={() => handleProductionReport(order)}
                                     className="p-1 text-green-600 hover:bg-green-100 rounded"
-                                    title="产量上报"
+                                    title="产量上报/结束工单"
                                   >
-                                    <BarChart3 className="w-4 h-4" />
+                                    <ClipboardList className="w-4 h-4" />
                                   </button>
                                 )}
                               </FeatureGate>
@@ -731,9 +725,9 @@ const OrderManagement = ({
         onClose={handleCloseProductionReport}
         order={productionReportModal.order}
         onSave={() => {
-          // 可以在这里刷新数据或执行其他操作
           console.log('产量上报保存成功');
         }}
+        onFinishOrder={handleFinishOrderFromReport}
       />
     </div>
   );
