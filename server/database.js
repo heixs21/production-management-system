@@ -251,6 +251,7 @@ async function initDatabase() {
     await addColumnSafely('machines', 'realtimeData', 'JSON');
   await addColumnSafely('machines', 'lastOpcuaUpdate', 'TIMESTAMP NULL');
   await addColumnSafely('machines', 'autoAdjustOrders', 'BOOLEAN DEFAULT TRUE');
+  await addColumnSafely('machines', 'enableBatchSubmit', 'BOOLEAN DEFAULT TRUE');
 
     // 创建默认用户 - 和泰链运
     const [existingAdmin] = await connection.execute('SELECT id FROM users WHERE username = ?', ['admin']);

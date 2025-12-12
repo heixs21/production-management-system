@@ -114,9 +114,11 @@ const MachineMonitoring = () => {
     }
   };
 
-  // 取消工单
-  const cancelWorkOrder = async (workOrderId) => {
-    setOperationLoading(prev => ({ ...prev, [workOrderId]: 'canceling' }));
+  // 取消工单（支持静默模式）
+  const cancelWorkOrder = async (workOrderId, silent = false) => {
+    if (!silent) {
+      setOperationLoading(prev => ({ ...prev, [workOrderId]: 'canceling' }));
+    }
     try {
       const response = await fetch(`${API_BASE}/api/mes/cancelWorkOrder/${workOrderId}`, {
         method: 'POST'
@@ -128,17 +130,24 @@ const MachineMonitoring = () => {
 
       const result = await response.json();
       if (result.success) {
-        // 刷新工单列表
-        await fetchWorkOrders();
-        alert(`工单取消成功！`);
+        if (!silent) {
+          await fetchWorkOrders();
+          alert(`工单取消成功！`);
+        }
+        return true;
       } else {
         throw new Error(result.message || '取消工单失败');
       }
     } catch (err) {
-      alert(`取消工单失败: ${err.message}`);
+      if (!silent) {
+        alert(`取消工单失败: ${err.message}`);
+      }
       console.error('取消工单失败:', err);
+      throw err;
     } finally {
-      setOperationLoading(prev => ({ ...prev, [workOrderId]: null }));
+      if (!silent) {
+        setOperationLoading(prev => ({ ...prev, [workOrderId]: null }));
+      }
     }
   };
 
@@ -243,23 +252,29 @@ const MachineMonitoring = () => {
 
   // 删除机台所有MES工单
   const deleteAllMachineOrders = async (machineName, lineCode) => {
-    if (!window.confirm(`确定要删除机台 ${machineName} 的所有MES工单吗？此操作不可恢复！`)) {
+    // 找到该机台的所有MES工单
+    const machineOrders = workOrders.filter(o => {
+      const orderMachineName = getMachineName(o.equipment);
+      return orderMachineName === machineName;
+    });
+    
+    if (machineOrders.length === 0) {
+      alert(`机台 ${machineName} 没有MES工单`);
+      return;
+    }
+    
+    if (!window.confirm(`确定要删除机台 ${machineName} 的 ${machineOrders.length} 个MES工单吗？此操作不可恢复！`)) {
       return;
     }
     
     try {
-      // 找到该机台的所有MES工单
-      const machineOrders = workOrders.filter(o => {
-        const orderMachineName = getMachineName(o.equipment);
-        return orderMachineName === machineName;
-      });
-      
       let successCount = 0;
       let failCount = 0;
       
+      // 静默模式批量删除
       for (const order of machineOrders) {
         try {
-          await cancelWorkOrder(order.id);
+          await cancelWorkOrder(order.id, true);
           successCount++;
         } catch (err) {
           console.error(`删除工单 ${order.orderId} 失败:`, err);
@@ -267,15 +282,16 @@ const MachineMonitoring = () => {
         }
       }
       
+      // 批量删除完成后统一刷新
       await fetchWorkOrders();
       
       if (failCount === 0) {
-        alert(`已删除机台 ${machineName} 的 ${successCount} 个MES工单`);
+        alert(`✅ 已成功删除机台 ${machineName} 的 ${successCount} 个MES工单`);
       } else {
-        alert(`删除完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+        alert(`⚠️ 删除完成：成功 ${successCount} 个，失败 ${failCount} 个`);
       }
     } catch (err) {
-      alert(`删除失败: ${err.message}`);
+      alert(`❌ 删除失败: ${err.message}`);
       console.error('删除机台工单失败:', err);
     }
   };
