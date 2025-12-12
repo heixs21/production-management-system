@@ -151,11 +151,28 @@ const OrderManagement = ({
   const handleBatchSubmit = async () => {
     if (!onBatchSubmitWorkOrder) return;
     
-    const unsubmittedOrders = filteredActiveOrders.filter(order => !isOrderSubmitted(order.orderNo));
+    // 只下达启用了一键下达的机台的工单
+    const enabledMachines = machines.filter(m => m.enableBatchSubmit === true || m.enableBatchSubmit === 1).map(m => m.name);
+    const unsubmittedOrders = filteredActiveOrders.filter(order => 
+      !isOrderSubmitted(order.orderNo) && enabledMachines.includes(order.machine)
+    );
     
     if (unsubmittedOrders.length === 0) {
-      alert('当前分组没有未下达的工单');
+      alert('当前分组没有可下达的工单（请检查机台是否启用了一键下达）');
       return;
+    }
+    
+    // 如果有机台未启用，给出提示
+    const disabledMachines = machines.filter(m => !(m.enableBatchSubmit === true || m.enableBatchSubmit === 1)).map(m => m.name);
+    if (disabledMachines.length > 0) {
+      const disabledOrdersCount = filteredActiveOrders.filter(order => 
+        !isOrderSubmitted(order.orderNo) && disabledMachines.includes(order.machine)
+      ).length;
+      if (disabledOrdersCount > 0) {
+        if (!window.confirm(`注意：有 ${disabledMachines.length} 个机台未启用一键下达，${disabledOrdersCount} 个工单将被跳过。\n\n将下达 ${unsubmittedOrders.length} 个工单，是否继续？`)) {
+          return;
+        }
+      }
     }
     
     if (!window.confirm(`确定要下达 ${unsubmittedOrders.length} 个工单吗？`)) {
