@@ -113,6 +113,21 @@ export const MachineModal = ({
           </div>
           <div className="flex items-center justify-between p-3 border rounded bg-gray-50">
             <div>
+              <label className="text-sm font-medium text-gray-700">启用一键下达</label>
+              <p className="text-xs text-gray-500 mt-1">该机台的工单是否参与一键下达功能</p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={machineData.enableBatchSubmit === true || machineData.enableBatchSubmit === 1}
+                onChange={(e) => onMachineChange({ ...machineData, enableBatchSubmit: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+          <div className="flex items-center justify-between p-3 border rounded bg-gray-50">
+            <div>
               <label className="text-sm font-medium text-gray-700">需要产量上报</label>
               <p className="text-xs text-gray-500 mt-1">结束工单时检查是否已完成产量上报</p>
             </div>
