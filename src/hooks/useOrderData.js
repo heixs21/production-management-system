@@ -168,7 +168,6 @@ export const useOrderData = () => {
                 );
                 
                 const newStartDate = new Date(lastEndDate);
-                newStartDate.setDate(newStartDate.getDate() + 1);
                 
                 const newEndDate = new Date(newStartDate);
                 newEndDate.setDate(newEndDate.getDate() + orderDuration);
