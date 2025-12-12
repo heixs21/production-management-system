@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Play, Square, RefreshCw, AlertCircle } from 'lucide-react';
+import { Play, Square, RefreshCw, AlertCircle, Trash2, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getCompanyConfig } from '../config/companies';
+import { orderApi } from '../services/api';
 
 const MachineMonitoring = () => {
   const { user } = useAuth();
   const companyConfig = getCompanyConfig(user?.companyId);
   const [workOrders, setWorkOrders] = useState([]);
   const [machines, setMachines] = useState([]);
+  const [localOrders, setLocalOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [operationLoading, setOperationLoading] = useState({});
+  const [selectedGroup, setSelectedGroup] = useState('all');
 
   // API配置 - 使用后端代理
   const API_BASE = `http://${window.location.hostname}:12454`;
@@ -30,6 +33,16 @@ const MachineMonitoring = () => {
       }
     } catch (err) {
       console.error('获取机台数据失败:', err);
+    }
+  };
+
+  // 获取本地工单数据
+  const fetchLocalOrders = async () => {
+    try {
+      const data = await orderApi.getAll();
+      setLocalOrders(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error('获取本地工单数据失败:', err);
     }
   };
 
@@ -135,6 +148,21 @@ const MachineMonitoring = () => {
     return machine ? machine.name : `产线${lineCode}`;
   };
 
+  // 获取机台分组列表
+  const machineGroups = useMemo(() => {
+    const groups = new Set();
+    machines.forEach(m => {
+      if (m.machineGroup) groups.add(m.machineGroup);
+    });
+    return ['all', ...Array.from(groups)];
+  }, [machines]);
+
+  // 过滤机台
+  const filteredMachines = useMemo(() => {
+    if (selectedGroup === 'all') return machines;
+    return machines.filter(m => m.machineGroup === selectedGroup);
+  }, [machines, selectedGroup]);
+
   // 按产线代号分组并排序
   const groupedWorkOrders = useMemo(() => {
     const groups = {};
@@ -169,6 +197,20 @@ const MachineMonitoring = () => {
     return groups;
   }, [workOrders, machines]);
 
+  // 过滤分组后的工单
+  const filteredGroupedWorkOrders = useMemo(() => {
+    if (selectedGroup === 'all') return groupedWorkOrders;
+    
+    const filtered = {};
+    Object.entries(groupedWorkOrders).forEach(([key, group]) => {
+      const machine = filteredMachines.find(m => m.name === group.machineName);
+      if (machine) {
+        filtered[key] = group;
+      }
+    });
+    return filtered;
+  }, [groupedWorkOrders, filteredMachines]);
+
   // 格式化日期
   const formatDate = (dateString) => {
     if (!dateString || dateString === '0001-01-01T00:00:00+08:00') {
@@ -199,9 +241,65 @@ const MachineMonitoring = () => {
       : 'px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800';
   };
 
+  // 删除机台所有MES工单
+  const deleteAllMachineOrders = async (machineName, lineCode) => {
+    if (!window.confirm(`确定要删除机台 ${machineName} 的所有MES工单吗？此操作不可恢复！`)) {
+      return;
+    }
+    
+    try {
+      // 找到该机台的所有MES工单
+      const machineOrders = workOrders.filter(o => {
+        const orderMachineName = getMachineName(o.equipment);
+        return orderMachineName === machineName;
+      });
+      
+      let successCount = 0;
+      let failCount = 0;
+      
+      for (const order of machineOrders) {
+        try {
+          await cancelWorkOrder(order.id);
+          successCount++;
+        } catch (err) {
+          console.error(`删除工单 ${order.orderId} 失败:`, err);
+          failCount++;
+        }
+      }
+      
+      await fetchWorkOrders();
+      
+      if (failCount === 0) {
+        alert(`已删除机台 ${machineName} 的 ${successCount} 个MES工单`);
+      } else {
+        alert(`删除完成：成功 ${successCount} 个，失败 ${failCount} 个`);
+      }
+    } catch (err) {
+      alert(`删除失败: ${err.message}`);
+      console.error('删除机台工单失败:', err);
+    }
+  };
+
+  // 检查工单执行顺序是否正确
+  const checkOrderSequence = (machineName, currentOrderId) => {
+    const machineOrders = localOrders
+      .filter(o => o.machine === machineName && !o.actualEndDate)
+      .sort((a, b) => {
+        if (a.startDate !== b.startDate) {
+          return new Date(a.startDate) - new Date(b.startDate);
+        }
+        return a.priority - b.priority;
+      });
+    
+    if (machineOrders.length === 0) return false;
+    const firstOrder = machineOrders[0];
+    return firstOrder.orderNo !== currentOrderId;
+  };
+
   useEffect(() => {
     fetchMachines();
     fetchWorkOrders();
+    fetchLocalOrders();
   }, []);
 
   return (
@@ -209,9 +307,30 @@ const MachineMonitoring = () => {
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         {/* 头部 */}
         <div className="flex items-center justify-between p-4 border-b bg-gradient-to-r from-blue-50 to-indigo-50">
-          <h1 className="text-xl font-bold text-gray-800">机台监控</h1>
+          <div className="flex items-center space-x-4">
+            <h1 className="text-xl font-bold text-gray-800">机台监控</h1>
+            {/* 机台分组切换 */}
+            <div className="flex items-center space-x-2">
+              {machineGroups.map(group => (
+                <button
+                  key={group}
+                  onClick={() => setSelectedGroup(group)}
+                  className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                    selectedGroup === group
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-100'
+                  }`}
+                >
+                  {group === 'all' ? '全部' : group}
+                </button>
+              ))}
+            </div>
+          </div>
           <button
-            onClick={fetchWorkOrders}
+            onClick={() => {
+              fetchWorkOrders();
+              fetchLocalOrders();
+            }}
             disabled={loading}
             className="flex items-center px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
           >
@@ -247,18 +366,32 @@ const MachineMonitoring = () => {
               <div className="text-center py-12 text-gray-500">
                 <p className="text-sm">机电公司不使用此页面，请使用工单管理功能</p>
               </div>
-            ) : Object.keys(groupedWorkOrders).length === 0 ? (
+            ) : Object.keys(filteredGroupedWorkOrders).length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 暂无工单数据
               </div>
             ) : (
-              Object.entries(groupedWorkOrders)
+              Object.entries(filteredGroupedWorkOrders)
                 .sort(([, a], [, b]) => a.machineName.localeCompare(b.machineName))
-                .map(([groupKey, group]) => (
+                .map(([groupKey, group]) => {
+                  const hasSequenceError = group.orders.some(order => 
+                    order.status === '1' && checkOrderSequence(group.machineName, order.orderId)
+                  );
+                  
+                  return (
                 <div key={groupKey} className="mb-6">
                   {/* 机台标题 */}
-                  <div className="flex items-center mb-3 p-3 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-l-4 border-indigo-500">
-                    <div className="w-3 h-3 bg-indigo-500 rounded-full mr-3"></div>
+                  <div className={`flex items-center mb-3 p-3 rounded-lg border-l-4 ${
+                    hasSequenceError 
+                      ? 'bg-gradient-to-r from-red-50 to-orange-50 border-red-500'
+                      : 'bg-gradient-to-r from-indigo-50 to-blue-50 border-indigo-500'
+                  }`}>
+                    <div className={`w-3 h-3 rounded-full mr-3 ${
+                      hasSequenceError ? 'bg-red-500 animate-pulse' : 'bg-indigo-500'
+                    }`}></div>
+                    {hasSequenceError && (
+                      <AlertTriangle className="w-5 h-5 text-red-600 mr-2 animate-pulse" />
+                    )}
                     <h3 className="text-lg font-semibold text-gray-800">
                       {group.machineName}
                     </h3>
@@ -268,6 +401,19 @@ const MachineMonitoring = () => {
                     <span className="ml-3 px-3 py-1 bg-indigo-100 text-indigo-800 rounded-full text-sm font-medium">
                       {group.orders.length}个工单
                     </span>
+                    {hasSequenceError && (
+                      <span className="ml-3 px-3 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium animate-pulse">
+                        ⚠️ 工单顺序异常
+                      </span>
+                    )}
+                    <button
+                      onClick={() => deleteAllMachineOrders(group.machineName, group.lineCode)}
+                      className="ml-auto flex items-center px-3 py-1 bg-red-600 text-white rounded text-sm hover:bg-red-700"
+                      title="删除该机台所有MES工单"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" />
+                      删除所有MES工单
+                    </button>
                   </div>
 
                   {/* 工单表格 */}
@@ -285,10 +431,24 @@ const MachineMonitoring = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {group.orders.map((order) => (
-                          <tr key={order.id} className="border-b hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-blue-600">
-                              {order.orderId}
+                        {group.orders.map((order, index) => {
+                          const isSequenceError = order.status === '1' && checkOrderSequence(group.machineName, order.orderId);
+                          
+                          return (
+                          <tr key={order.id} className={`border-b hover:bg-gray-50 ${
+                            isSequenceError ? 'bg-red-50' : ''
+                          }`}>
+                            <td className="px-4 py-3">
+                              <div className="flex items-center">
+                                {isSequenceError && (
+                                  <AlertTriangle className="w-4 h-4 text-red-600 mr-2 animate-pulse" title="工单执行顺序异常" />
+                                )}
+                                <span className={`font-medium ${
+                                  isSequenceError ? 'text-red-600' : 'text-blue-600'
+                                }`}>
+                                  {order.orderId}
+                                </span>
+                              </div>
                             </td>
                             <td className="px-4 py-3">
                               {order.materialId || '-'}
@@ -358,12 +518,14 @@ const MachineMonitoring = () => {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
                 </div>
-              ))
+                  );
+                })
             )}
           </div>
         )}
