@@ -73,12 +73,13 @@ router.get('/machines', authenticateToken, addCompanyFilter, async (req, res) =>
 
 router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) => {
   try {
-    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, enableBatchSubmit, requiresProductionReport } = req.body;
     const autoAdjustValue = autoAdjustOrders === false ? 0 : 1;
+    const enableBatchSubmitValue = enableBatchSubmit === false ? 0 : 1;
     const requiresReportValue = requiresProductionReport ? 1 : 0;
     const [result] = await pool.execute(
-      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, autoAdjustValue, requiresReportValue, req.companyId]
+      'INSERT INTO machines (name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, enableBatchSubmit, requiresProductionReport, companyId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [name, machineGroup || null, lineCode || null, status || '正常', oee || 0.85, coefficient || 1.00, autoAdjustValue, enableBatchSubmitValue, requiresReportValue, req.companyId]
     );
     
     // 为新机台创建默认班次
@@ -94,6 +95,7 @@ router.post('/machines', authenticateToken, addCompanyFilter, async (req, res) =
       oee: oee || 0.85,
       coefficient: coefficient || 1.00,
       autoAdjustOrders: autoAdjustValue === 1,
+      enableBatchSubmit: enableBatchSubmitValue === 1,
       requiresProductionReport: requiresReportValue === 1
     });
   } catch (error) {
@@ -107,8 +109,9 @@ router.put('/machines/:id', authenticateToken, addCompanyFilter, async (req, res
   try {
     await connection.beginTransaction();
     
-    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, requiresProductionReport } = req.body;
+    const { name, machineGroup, lineCode, status, oee, coefficient, autoAdjustOrders, enableBatchSubmit, requiresProductionReport } = req.body;
     const autoAdjustValue = autoAdjustOrders === false ? 0 : 1;
+    const enableBatchSubmitValue = enableBatchSubmit === false ? 0 : 1;
     const requiresReportValue = requiresProductionReport ? 1 : 0;
     
     // 获取旧的机台名称
@@ -126,8 +129,8 @@ router.put('/machines/:id', authenticateToken, addCompanyFilter, async (req, res
     
     // 更新机台信息
     await connection.execute(
-      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ?, requiresProductionReport = ? WHERE id = ? AND companyId = ?',
-      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustValue, requiresReportValue, req.params.id, req.companyId]
+      'UPDATE machines SET name = ?, machineGroup = ?, lineCode = ?, status = ?, oee = ?, coefficient = ?, autoAdjustOrders = ?, enableBatchSubmit = ?, requiresProductionReport = ? WHERE id = ? AND companyId = ?',
+      [name, machineGroup || null, lineCode || null, status, oee, coefficient || 1.00, autoAdjustValue, enableBatchSubmitValue, requiresReportValue, req.params.id, req.companyId]
     );
     
     // 如果机台名称发生变化，同步更新所有关联的工单
